@@ -30,7 +30,7 @@
 ## Architectural Threats
 
 - **XXE / SSRF via entity expansion**: If consumers enable `XML_PARSE_NOENT` + `XML_PARSE_DTDLOAD` on untrusted input, external entities are fetched and substituted. This is a design-level threat: safe defaults exist but cannot prevent misconfigured consumers. Severity: High. Not fixable by library; mitigated by documentation.
-- **Quadratic complexity in XPath string comparison**: `xmlXPathCompareNodeSets` in xpath.c performs O(n×m) string comparisons over two node sets. An attacker-controlled document with large node sets could cause CPU DoS. Severity: Medium. Partially mitigated by `XPATH_MAX_NODESET_LENGTH`.
+- **Quadratic complexity in XPath string comparison**: `xmlXPathEqualNodeSets` in xpath.c implements O(n×m) string-value comparisons for node-set vs node-set equality/inequality (`=`/`!=`). An attacker-controlled document with large node sets could cause CPU DoS. Severity: Medium. Partially mitigated by `XPATH_MAX_NODESET_LENGTH`.
 - **Deprecated global state APIs**: `xmlSubstituteEntitiesDefault()` and `xmlLoadExtDtdDefaultValue()` modify global (thread-local) state, creating risk of inadvertent configuration changes in multi-library environments. Severity: Medium. Inherent in legacy API design.
 
 ## Deployment-Resolvable Threats
