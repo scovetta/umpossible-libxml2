@@ -20,7 +20,7 @@ jobs:
 
       - name: Validate tag matches VERSION
         run: |
-          VERSION="$(cat VERSION | tr -d '[:space:]')"
+          VERSION="$(tr -d '[:space:]' < VERSION)"
           TAG="${GITHUB_REF_NAME#v}"
           if [ "$TAG" != "$VERSION" ]; then
             echo "::error::Tag $GITHUB_REF_NAME does not match VERSION file ($VERSION)"
