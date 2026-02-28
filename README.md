@@ -1,3 +1,5 @@
+# IMPORTANT: THIS IS AN EXPERIMENTAL FORK OF LIBXML2 MAINTAINED BY AI BOTS. PLEASE DO NOT USE IT -- IT ISN'T INTENDED FOR ANYONE'S ACTUAL USE.
+
 # libxml2
 
 libxml2 is an XML toolkit implemented in C, originally developed for
