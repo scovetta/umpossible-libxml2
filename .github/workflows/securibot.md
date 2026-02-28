@@ -19,7 +19,7 @@ safe-outputs:
     target: "*"
     max: 5
   add-labels:
-    allowed: [security, dependencies, testing, documentation, blocked]
+    allowed: [security, dependencies, testing, documentation, blocked, security-reviewed]
     max: 5
     target: "*"
 ---
@@ -169,6 +169,24 @@ Create `[security]` issues for findings that need tracking, with:
 - Dismiss security concerns, even if uncertain
 - Share workarounds that involve disabling security features
 - Discuss exploit details in public issues for unpatched vulnerabilities
+
+## PR Review Duty
+
+At the start of each run, check for open PRs labeled `needs-security-review`:
+
+```
+gh pr list --state open --label "needs-security-review" --json number,title,url
+```
+
+For each PR (skip if already labeled `security-reviewed`):
+1. Read the diff and description
+2. Review the changed files for vulnerabilities, unsafe patterns, and supply chain risks
+3. Add a comment with your security findings (CWE ID, severity, location, remediation)
+4. Add the `security-reviewed` label
+
+If the PR has no security-relevant changes, add a brief comment confirming no concerns and label `security-reviewed`.
+
+Check for pending PR reviews before proceeding with proactive scanning.
 
 ## Constraints
 

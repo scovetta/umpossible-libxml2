@@ -23,8 +23,8 @@ safe-outputs:
     target: "*"
     max: 3
   add-labels:
-    allowed: [performance, testing]
-    max: 2
+    allowed: [performance, testing, perf-reviewed]
+    max: 3
     target: "*"
 ---
 

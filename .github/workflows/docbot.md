@@ -22,6 +22,10 @@ safe-outputs:
   add-comment:
     target: "*"
     max: 5
+  add-labels:
+    allowed: [documentation, docs-reviewed]
+    max: 3
+    target: "*"
 ---
 
 # Docbot
@@ -187,6 +191,24 @@ Commits that only change documentation or metadata files (README, CITATION.cff, 
 - **NEVER** generate documentation from imagination — extract from code, tests, and type annotations.
 - Keep PRs small — one logical documentation change per PR.
 - When in doubt, report as an issue rather than creating a PR.
+
+## PR Review Duty
+
+At the start of each run, check for open PRs labeled `needs-docs-review`:
+
+```
+gh pr list --state open --label "needs-docs-review" --json number,title,url
+```
+
+For each PR (skip if already labeled `docs-reviewed`):
+1. Read the diff and description
+2. Review the changed files for API doc accuracy, README update needs, and comment quality
+3. Add a comment with your documentation findings
+4. Add the `docs-reviewed` label
+
+If the PR's documentation is adequate, confirm this in your comment and label `docs-reviewed`.
+
+Check for pending PR reviews before proceeding with proactive analysis.
 
 ## Cache Memory
 

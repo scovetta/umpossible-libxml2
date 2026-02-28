@@ -23,7 +23,7 @@ safe-outputs:
     target: "*"
     max: 5
   add-labels:
-    allowed: [build, blocked, security]
+    allowed: [build, blocked, security, build-reviewed]
     max: 3
     target: "*"
 ---
@@ -138,6 +138,24 @@ When writing or reviewing CI workflows:
 - Set environment variables at the job level when they apply to multiple steps
 - Use matrix builds for testing across runtime versions
 - Check the ecosystem reference for the correct container image, install command, and test command
+
+## PR Review Duty
+
+At the start of each run, check for open PRs labeled `needs-build-review`:
+
+```
+gh pr list --state open --label "needs-build-review" --json number,title,url
+```
+
+For each PR (skip if already labeled `build-reviewed`):
+1. Read the diff and description
+2. Review the changed files for build correctness, CI impacts, and cross-platform issues
+3. Add a comment with your build findings
+4. Add the `build-reviewed` label
+
+If the PR has no build-relevant changes, confirm this in your comment and label `build-reviewed`.
+
+Check for pending PR reviews before proceeding with proactive analysis.
 
 ## Constraints
 

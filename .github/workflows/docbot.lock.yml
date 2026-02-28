@@ -22,7 +22,7 @@
 # For more information: https://github.github.com/gh-aw/introduction/overview/
 #
 #
-# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"b8b8f5c2777a92138ad1e1085fdd01fad424d86540408d93c4c0269460fc3ab7","compiler_version":"v0.50.5"}
+# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"51ab49f9eb3cb90561c81f2cf2bf725c5c81839c8340f789abef60b62085c8d3","compiler_version":"v0.50.5"}
 
 name: "Docbot"
 "on":
@@ -105,7 +105,7 @@ jobs:
           cat "/opt/gh-aw/prompts/safe_outputs_prompt.md"
           cat << 'GH_AW_PROMPT_EOF'
           <safe-output-tools>
-          Tools: add_comment, create_issue, create_pull_request, missing_tool, missing_data
+          Tools: add_comment, create_issue, create_pull_request, add_labels, missing_tool, missing_data
           GH_AW_PROMPT_EOF
           cat "/opt/gh-aw/prompts/safe_outputs_create_pull_request.md"
           cat << 'GH_AW_PROMPT_EOF'
@@ -346,7 +346,7 @@ jobs:
           mkdir -p /tmp/gh-aw/safeoutputs
           mkdir -p /tmp/gh-aw/mcp-logs/safeoutputs
           cat > /opt/gh-aw/safeoutputs/config.json << 'GH_AW_SAFE_OUTPUTS_CONFIG_EOF'
-          {"add_comment":{"max":5,"target":"*"},"create_issue":{"expires":168,"max":3},"create_pull_request":{"expires":14,"max":1},"missing_data":{},"missing_tool":{},"noop":{"max":1}}
+          {"add_comment":{"max":5,"target":"*"},"add_labels":{"allowed":["documentation","docs-reviewed"],"max":3,"target":"*"},"create_issue":{"expires":168,"max":3},"create_pull_request":{"expires":14,"max":1},"missing_data":{},"missing_tool":{},"noop":{"max":1}}
           GH_AW_SAFE_OUTPUTS_CONFIG_EOF
           cat > /opt/gh-aw/safeoutputs/tools.json << 'GH_AW_SAFE_OUTPUTS_TOOLS_EOF'
           [
@@ -450,6 +450,27 @@ jobs:
               "name": "create_pull_request"
             },
             {
+              "description": "Add labels to an existing GitHub issue or pull request for categorization and filtering. Labels must already exist in the repository. For creating new issues with labels, use create_issue with the labels property instead. CONSTRAINTS: Maximum 3 label(s) can be added. Only these labels are allowed: [documentation docs-reviewed]. Target: *.",
+              "inputSchema": {
+                "additionalProperties": false,
+                "properties": {
+                  "item_number": {
+                    "description": "Issue or PR number to add labels to. This is the numeric ID from the GitHub URL (e.g., 456 in github.com/owner/repo/issues/456). If omitted, adds labels to the issue or PR that triggered this workflow. Only works for issue or pull_request event triggers. For schedule, workflow_dispatch, or other triggers, item_number is required — omitting it will silently skip the label operation.",
+                    "type": "number"
+                  },
+                  "labels": {
+                    "description": "Label names to add (e.g., ['bug', 'priority-high']). Labels must exist in the repository.",
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  }
+                },
+                "type": "object"
+              },
+              "name": "add_labels"
+            },
+            {
               "description": "Report that a tool or capability needed to complete the task is not available, or share any information you deem important about missing functionality or limitations. Use this when you cannot accomplish what was requested because the required functionality is missing or access is restricted.",
               "inputSchema": {
                 "additionalProperties": false,
@@ -533,6 +554,25 @@ jobs:
                 },
                 "item_number": {
                   "issueOrPRNumber": true
+                },
+                "repo": {
+                  "type": "string",
+                  "maxLength": 256
+                }
+              }
+            },
+            "add_labels": {
+              "defaultMax": 5,
+              "fields": {
+                "item_number": {
+                  "issueOrPRNumber": true
+                },
+                "labels": {
+                  "required": true,
+                  "type": "array",
+                  "itemType": "string",
+                  "itemSanitize": true,
+                  "itemMaxLength": 128
                 },
                 "repo": {
                   "type": "string",
@@ -1246,7 +1286,7 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           GH_AW_AGENT_OUTPUT: ${{ env.GH_AW_AGENT_OUTPUT }}
-          GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\"add_comment\":{\"max\":5,\"target\":\"*\"},\"create_issue\":{\"expires\":168,\"labels\":[\"automation\",\"documentation\"],\"max\":3,\"title_prefix\":\"[documentation] \"},\"create_pull_request\":{\"base_branch\":\"${{ github.base_ref || github.ref_name }}\",\"draft\":true,\"expires\":14,\"labels\":[\"automation\",\"documentation\"],\"max\":1,\"max_patch_size\":1024,\"title_prefix\":\"[docs] \"},\"missing_data\":{},\"missing_tool\":{}}"
+          GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\"add_comment\":{\"max\":5,\"target\":\"*\"},\"add_labels\":{\"allowed\":[\"documentation\",\"docs-reviewed\"],\"max\":3,\"target\":\"*\"},\"create_issue\":{\"expires\":168,\"labels\":[\"automation\",\"documentation\"],\"max\":3,\"title_prefix\":\"[documentation] \"},\"create_pull_request\":{\"base_branch\":\"${{ github.base_ref || github.ref_name }}\",\"draft\":true,\"expires\":14,\"labels\":[\"automation\",\"documentation\"],\"max\":1,\"max_patch_size\":1024,\"title_prefix\":\"[docs] \"},\"missing_data\":{},\"missing_tool\":{}}"
           GH_AW_CI_TRIGGER_TOKEN: ${{ secrets.GH_AW_CI_TRIGGER_TOKEN }}
         with:
           github-token: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}

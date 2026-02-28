@@ -23,7 +23,7 @@ safe-outputs:
     target: "*"
     max: 5
   add-labels:
-    allowed: [testing, blocked]
+    allowed: [testing, blocked, test-reviewed]
     max: 3
     target: "*"
 ---
@@ -114,6 +114,24 @@ Generate tests from concrete evidence, not imagination:
 - Tests must be portable across supported platforms
 - Tests must not rely on undefined behavior or compiler/runtime-specific features
 - Follow existing code style in the test suite
+
+## PR Review Duty
+
+At the start of each run, check for open PRs labeled `needs-test-review`:
+
+```
+gh pr list --state open --label "needs-test-review" --json number,title,url
+```
+
+For each PR (skip if already labeled `test-reviewed`):
+1. Read the diff and description
+2. Review the changed files for coverage gaps, missing tests, and test quality issues
+3. Add a comment with your testing findings
+4. Add the `test-reviewed` label
+
+If the PR includes adequate tests for all changed code, confirm this in your comment and label `test-reviewed`.
+
+Check for pending PR reviews before proceeding with proactive analysis.
 
 ## Constraints
 

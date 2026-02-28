@@ -23,7 +23,7 @@ safe-outputs:
     target: "*"
     max: 3
   add-labels:
-    allowed: [license, dependencies, blocked]
+    allowed: [license, dependencies, blocked, license-reviewed]
     max: 3
     target: "*"
 ---
@@ -116,6 +116,24 @@ Commits that only change license files, REUSE.toml, `.reuse/` entries, or `LICEN
 - Relicensing considerations
 - Ambiguous licensing situations
 - Files with unclear provenance
+
+## PR Review Duty
+
+At the start of each run, check for open PRs labeled `needs-license-review`:
+
+```
+gh pr list --state open --label "needs-license-review" --json number,title,url
+```
+
+For each PR (skip if already labeled `license-reviewed`):
+1. Read the diff and description
+2. Review the changed files for license headers, SPDX expressions, and dependency license compatibility
+3. Add a comment with your license findings
+4. Add the `license-reviewed` label
+
+If the PR has no license-relevant changes, confirm this in your comment and label `license-reviewed`.
+
+Check for pending PR reviews before proceeding with proactive analysis.
 
 ## Constraints
 

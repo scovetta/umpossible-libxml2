@@ -22,7 +22,7 @@
 # For more information: https://github.github.com/gh-aw/introduction/overview/
 #
 #
-# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"d1b648cca8c8368cd7cd21fe4225b09784b87553b8a83f881e0445f97583d033","compiler_version":"v0.50.5"}
+# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"5fbea04a525466aa9089326b52474e8277ac3c5a2855b0d07818f1ea60d77a69","compiler_version":"v0.50.5"}
 
 name: "Securibot"
 "on":
@@ -343,7 +343,7 @@ jobs:
           mkdir -p /tmp/gh-aw/safeoutputs
           mkdir -p /tmp/gh-aw/mcp-logs/safeoutputs
           cat > /opt/gh-aw/safeoutputs/config.json << 'GH_AW_SAFE_OUTPUTS_CONFIG_EOF'
-          {"add_comment":{"max":5,"target":"*"},"add_labels":{"allowed":["security","dependencies","testing","documentation","blocked"],"max":5,"target":"*"},"create_code_scanning_alert":{"max":20},"create_issue":{"expires":168,"max":3},"missing_data":{},"missing_tool":{},"noop":{"max":1}}
+          {"add_comment":{"max":5,"target":"*"},"add_labels":{"allowed":["security","dependencies","testing","documentation","blocked","security-reviewed"],"max":5,"target":"*"},"create_code_scanning_alert":{"max":20},"create_issue":{"expires":168,"max":3},"missing_data":{},"missing_tool":{},"noop":{"max":1}}
           GH_AW_SAFE_OUTPUTS_CONFIG_EOF
           cat > /opt/gh-aw/safeoutputs/tools.json << 'GH_AW_SAFE_OUTPUTS_TOOLS_EOF'
           [
@@ -462,7 +462,7 @@ jobs:
               "name": "create_code_scanning_alert"
             },
             {
-              "description": "Add labels to an existing GitHub issue or pull request for categorization and filtering. Labels must already exist in the repository. For creating new issues with labels, use create_issue with the labels property instead. CONSTRAINTS: Maximum 5 label(s) can be added. Only these labels are allowed: [security dependencies testing documentation blocked]. Target: *.",
+              "description": "Add labels to an existing GitHub issue or pull request for categorization and filtering. Labels must already exist in the repository. For creating new issues with labels, use create_issue with the labels property instead. CONSTRAINTS: Maximum 5 label(s) can be added. Only these labels are allowed: [security dependencies testing documentation blocked security-reviewed]. Target: *.",
               "inputSchema": {
                 "additionalProperties": false,
                 "properties": {
@@ -1258,7 +1258,7 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           GH_AW_AGENT_OUTPUT: ${{ env.GH_AW_AGENT_OUTPUT }}
-          GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\"add_comment\":{\"max\":5,\"target\":\"*\"},\"add_labels\":{\"allowed\":[\"security\",\"dependencies\",\"testing\",\"documentation\",\"blocked\"],\"max\":5,\"target\":\"*\"},\"create_code_scanning_alert\":{\"max\":20},\"create_issue\":{\"expires\":168,\"labels\":[\"automation\",\"security\"],\"max\":3,\"title_prefix\":\"[security] \"},\"missing_data\":{},\"missing_tool\":{}}"
+          GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\"add_comment\":{\"max\":5,\"target\":\"*\"},\"add_labels\":{\"allowed\":[\"security\",\"dependencies\",\"testing\",\"documentation\",\"blocked\",\"security-reviewed\"],\"max\":5,\"target\":\"*\"},\"create_code_scanning_alert\":{\"max\":20},\"create_issue\":{\"expires\":168,\"labels\":[\"automation\",\"security\"],\"max\":3,\"title_prefix\":\"[security] \"},\"missing_data\":{},\"missing_tool\":{}}"
         with:
           github-token: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
           script: |

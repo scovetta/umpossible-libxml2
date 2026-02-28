@@ -14,7 +14,7 @@ safe-outputs:
   submit-pull-request-review:
     max: 1
   add-labels:
-    max: 5
+    max: 8
 ---
 
 # Pull Request Review Agent
@@ -151,6 +151,27 @@ Apply labels based on the PR content:
 - `security`  Security-related changes
 - `performance`  Performance-related changes
 - `breaking-change`  Contains breaking API changes
+
+## Specialist Review Assignment
+
+After your review, request deeper specialist reviews by adding labels. Only request specialist reviews when the PR has significant changes in that domain — not every PR needs every specialist.
+
+| Label | Specialist | When to assign |
+|---|---|---|
+| `needs-security-review` | securibot | Input handling, crypto, auth, memory safety, or any flagged security concern |
+| `needs-test-review` | testbot | Code changes without corresponding tests, or test infrastructure changes |
+| `needs-build-review` | buildbot | Build files, CI config, compiler flags, Makefiles |
+| `needs-perf-review` | perfbot | Hot path changes, algorithm changes, new allocations in loops |
+| `needs-docs-review` | docbot | Public API changes, or documentation that doesn't match new code |
+| `needs-dep-review` | depbot | Dependency additions/removals, version changes, lockfile updates |
+| `needs-license-review` | licensebot | New files without license headers, new dependencies, license changes |
+
+These labels tell the specialist bots to review this PR during their next dispatch cycle. The specialists will add a comment with their domain-specific findings and mark review complete with a `*-reviewed` label.
+
+**Guidelines:**
+- Assign 1–3 specialist reviews per PR based on actual content, not by default.
+- Trivial PRs (typo fix, comment update) usually need no specialist review.
+- When in doubt about security implications, always assign `needs-security-review`.
 
 ## Constraints
 

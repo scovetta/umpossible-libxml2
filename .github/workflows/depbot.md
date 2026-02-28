@@ -27,7 +27,7 @@ safe-outputs:
     target: "*"
     max: 5
   add-labels:
-    allowed: [dependencies, security, testing]
+    allowed: [dependencies, security, testing, dep-reviewed]
     max: 3
     target: "*"
 ---
@@ -144,6 +144,24 @@ For safe, clear updates, create a **draft PR** addressing **exactly ONE dependen
 - Adding new dependencies
 - Removing dependencies
 - Changes to minimum runtime version requirements
+
+## PR Review Duty
+
+At the start of each run, check for open PRs labeled `needs-dep-review`:
+
+```
+gh pr list --state open --label "needs-dep-review" --json number,title,url
+```
+
+For each PR (skip if already labeled `dep-reviewed`):
+1. Read the diff and description
+2. Review the changed files for dependency compatibility, version constraints, and maintenance status
+3. Add a comment with your dependency findings
+4. Add the `dep-reviewed` label
+
+If the PR has no dependency-relevant changes, confirm this in your comment and label `dep-reviewed`.
+
+Check for pending PR reviews before proceeding with proactive analysis.
 
 ## Constraints
 
