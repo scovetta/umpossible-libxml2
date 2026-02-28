@@ -54,7 +54,7 @@
 - **Node set size limits**: `XPATH_MAX_NODESET_LENGTH = 10,000,000` bounds memory usage in XPath evaluation.
 - **HTTP client removal**: As of 2.15, the built-in HTTP client (`nanohttp`) was removed, eliminating a class of SSRF vulnerabilities.
 - **Safe defaults**: External entity loading and entity substitution are disabled by default.
-- **Pinned CI actions**: All GitHub Actions workflows use full SHA-pinned actions, preventing supply chain compromise via tag mutation.
+- **Pinned GitHub Actions workflows**: All GitHub Actions workflows use full SHA-pinned actions, preventing supply chain compromise via tag mutation.
 - **Fuzz testing infrastructure**: `fuzz/` directory contains fuzzing harnesses for continuous security testing.
 
 ## Recommended Mitigations
