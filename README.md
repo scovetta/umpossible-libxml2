@@ -3,17 +3,17 @@
 libxml2 is an XML toolkit implemented in C, originally developed for
 the GNOME Project.
 
-Official releases can be downloaded from
-<https://download.gnome.org/sources/libxml2/>
+Official releases can be downloaded from the
+[Releases page](https://github.com/scovetta/umpossible-libxml2/releases).
 
-The git repository is hosted on GNOME's GitLab server:
-<https://gitlab.gnome.org/GNOME/libxml2>
+The git repository is hosted on GitHub:
+<https://github.com/scovetta/umpossible-libxml2>
 
 Bugs should be reported at
-<https://gitlab.gnome.org/GNOME/libxml2/-/issues>.
+<https://github.com/scovetta/umpossible-libxml2/issues>.
 
 Documentation is available at
-<https://gitlab.gnome.org/GNOME/libxml2/-/wikis>
+<https://github.com/scovetta/umpossible-libxml2/wiki>
 
 ## License
 
@@ -183,11 +183,11 @@ DocBook 4 XSLT stylesheets. Building the Python bindings requires Doxygen.
 
 ## Contributing
 
-The current version of the code can be found in GNOME's GitLab at
-<https://gitlab.gnome.org/GNOME/libxml2>. The best way to get involved
-is by creating issues and merge requests on GitLab.
+The current version of the code can be found on GitHub at
+<https://github.com/scovetta/umpossible-libxml2>. The best way to get involved
+is by creating issues and pull requests on GitHub.
 
-All code must conform to C89 and pass the GitLab CI tests. Add regression
+All code must conform to C89 and pass the CI tests. Add regression
 tests if possible.
 
 ## Authors
