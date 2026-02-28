@@ -1592,6 +1592,169 @@ testRemoveParamEntityExtSubset(void) {
     return err;
 }
 
+static int
+testParseURISafe(void) {
+    int err = 0;
+    int i;
+    xmlURIPtr uri;
+    xmlChar *saved;
+    int ret;
+
+    /* Test cases: input URI string, expected return code, expected round-trip */
+    static const struct {
+        const char *input;
+        int expectedRet;
+        const char *expectedSave;
+    } tests[] = {
+        /* Standard HTTP URI */
+        { "http://example.com/path?query=1#frag", 0,
+          "http://example.com/path?query=1#frag" },
+        /* URI with port */
+        { "http://example.com:8080/index.html", 0,
+          "http://example.com:8080/index.html" },
+        /* URI with user info */
+        { "ftp://user@host/dir/file", 0,
+          "ftp://user@host/dir/file" },
+        /* File URI */
+        { "file:///tmp/test.xml", 0,
+          "file:///tmp/test.xml" },
+        /* Relative reference */
+        { "../sibling/file.txt", 0,
+          "../sibling/file.txt" },
+        /* Just a path */
+        { "/absolute/path", 0,
+          "/absolute/path" },
+        /* Empty string is a valid relative reference */
+        { "", 0, "" },
+        /* Fragment only */
+        { "#section", 0, "#section" },
+        /* Query only */
+        { "?key=val", 0, "?key=val" },
+    };
+
+    /* NULL arguments */
+    ret = xmlParseURISafe(NULL, &uri);
+    if (ret != 1) {
+        fprintf(stderr, "xmlParseURISafe(NULL, &uri) returned %d, "
+                "expected 1\n", ret);
+        err = 1;
+    }
+
+    ret = xmlParseURISafe("http://x", NULL);
+    if (ret != 1) {
+        fprintf(stderr, "xmlParseURISafe(str, NULL) returned %d, "
+                "expected 1\n", ret);
+        err = 1;
+    }
+
+    /* Round-trip tests: parse then save */
+    for (i = 0; (size_t) i < sizeof(tests) / sizeof(tests[0]); i++) {
+        uri = NULL;
+        ret = xmlParseURISafe(tests[i].input, &uri);
+        if (ret != tests[i].expectedRet) {
+            fprintf(stderr, "xmlParseURISafe(\"%s\") returned %d, "
+                    "expected %d\n", tests[i].input, ret,
+                    tests[i].expectedRet);
+            err = 1;
+            if (uri != NULL) xmlFreeURI(uri);
+            continue;
+        }
+        if (ret != 0) {
+            if (uri != NULL) xmlFreeURI(uri);
+            continue;
+        }
+        saved = xmlSaveUri(uri);
+        if (saved == NULL) {
+            fprintf(stderr, "xmlSaveUri returned NULL for \"%s\"\n",
+                    tests[i].input);
+            err = 1;
+        } else if (strcmp((const char *) saved, tests[i].expectedSave) != 0) {
+            fprintf(stderr, "xmlSaveUri round-trip failed for \"%s\": "
+                    "got \"%s\" expected \"%s\"\n", tests[i].input,
+                    (const char *) saved, tests[i].expectedSave);
+            err = 1;
+        }
+        xmlFree(saved);
+        xmlFreeURI(uri);
+    }
+
+    /* xmlSaveUri with NULL */
+    saved = xmlSaveUri(NULL);
+    if (saved != NULL) {
+        fprintf(stderr, "xmlSaveUri(NULL) returned non-NULL\n");
+        xmlFree(saved);
+        err = 1;
+    }
+
+    return err;
+}
+
+static int
+testCanonicPath(void) {
+    int err = 0;
+    int i;
+    xmlChar *res;
+
+    static const struct {
+        const char *input;
+        const char *expected;
+    } tests[] = {
+        /* Plain filesystem path: returned as-is (no "://") */
+        { "/usr/local/file.xml", "/usr/local/file.xml" },
+        { "relative/path.xml", "relative/path.xml" },
+        { "", "" },
+        /* IRI with "://" triggers escaping of special characters */
+        { "http://example.com/path", "http://example.com/path" },
+        /* IRI with spaces gets percent-encoded */
+        { "http://example.com/a file.xml",
+          "http://example.com/a%20file.xml" },
+        /* IRI with existing percent-encoding is preserved */
+        { "http://example.com/a%20b", "http://example.com/a%20b" },
+    };
+
+    /* NULL returns NULL */
+    res = xmlCanonicPath(NULL);
+    if (res != NULL) {
+        fprintf(stderr, "xmlCanonicPath(NULL) returned non-NULL\n");
+        xmlFree(res);
+        err = 1;
+    }
+
+    for (i = 0; (size_t) i < sizeof(tests) / sizeof(tests[0]); i++) {
+        res = xmlCanonicPath(BAD_CAST tests[i].input);
+        if (res == NULL) {
+            fprintf(stderr, "xmlCanonicPath(\"%s\") returned NULL\n",
+                    tests[i].input);
+            err = 1;
+            continue;
+        }
+        if (strcmp((const char *) res, tests[i].expected) != 0) {
+            fprintf(stderr, "xmlCanonicPath(\"%s\") = \"%s\", "
+                    "expected \"%s\"\n", tests[i].input,
+                    (const char *) res, tests[i].expected);
+            err = 1;
+        }
+        xmlFree(res);
+    }
+
+    /* xmlPathToURI is an alias of xmlCanonicPath */
+    res = xmlPathToURI(BAD_CAST "/simple/path");
+    if (res == NULL || strcmp((const char *) res, "/simple/path") != 0) {
+        fprintf(stderr, "xmlPathToURI(\"/simple/path\") unexpected result\n");
+        err = 1;
+    }
+    xmlFree(res);
+
+    res = xmlPathToURI(NULL);
+    if (res != NULL) {
+        fprintf(stderr, "xmlPathToURI(NULL) returned non-NULL\n");
+        xmlFree(res);
+        err = 1;
+    }
+
+    return err;
+}
+
 int
 main(void) {
     int err = 0;
@@ -1655,6 +1818,8 @@ main(void) {
     err |= testCharEncConvImpl();
     err |= testRemoveParamEntityIntSubset();
     err |= testRemoveParamEntityExtSubset();
+    err |= testParseURISafe();
+    err |= testCanonicPath();
 
     return err;
 }
