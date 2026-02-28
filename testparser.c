@@ -1226,7 +1226,7 @@ testURIEscapeStr(void) {
     int i;
 
     static const xmlUriStringTest tests[] = {
-        /* Plain ASCII — nothing to escape */
+        /* Plain ASCII - nothing to escape */
         { "hello",              "hello"              },
         /* Space must be escaped */
         { "hello world",        "hello%20world"      },
