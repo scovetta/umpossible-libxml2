@@ -1234,7 +1234,7 @@ testURIEscapeStr(void) {
         { "",                   ""                   },
         /* Characters that must be escaped */
         { "a<b>c",              "a%3Cb%3Ec"          },
-        /* Already percent-encoded string passes through intact */
+        /* Already percent-encoded string is double-escaped ( '%' => '%25' ) */
         { "a%20b",              "a%2520b"            },
     };
 
