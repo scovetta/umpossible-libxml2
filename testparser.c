@@ -1593,6 +1593,471 @@ testRemoveParamEntityExtSubset(void) {
 }
 
 static int
+testXmlStringBasic(void) {
+    int err = 0;
+    xmlChar *s;
+    const xmlChar *p;
+
+    /* xmlStrdup / xmlStrlen */
+    s = xmlStrdup(BAD_CAST "hello");
+    if (s == NULL || xmlStrlen(s) != 5 ||
+        xmlStrcmp(s, BAD_CAST "hello") != 0) {
+        fprintf(stderr, "xmlStrdup basic failed\n");
+        err = 1;
+    }
+    xmlFree(s);
+
+    /* xmlStrdup NULL */
+    if (xmlStrdup(NULL) != NULL) {
+        fprintf(stderr, "xmlStrdup(NULL) should return NULL\n");
+        err = 1;
+    }
+
+    /* xmlStrndup */
+    s = xmlStrndup(BAD_CAST "hello world", 5);
+    if (s == NULL || xmlStrcmp(s, BAD_CAST "hello") != 0) {
+        fprintf(stderr, "xmlStrndup failed\n");
+        err = 1;
+    }
+    xmlFree(s);
+
+    /* xmlStrlen NULL */
+    if (xmlStrlen(NULL) != 0) {
+        fprintf(stderr, "xmlStrlen(NULL) should return 0\n");
+        err = 1;
+    }
+
+    /* xmlStrlen empty */
+    if (xmlStrlen(BAD_CAST "") != 0) {
+        fprintf(stderr, "xmlStrlen(\"\") should return 0\n");
+        err = 1;
+    }
+
+    /* xmlCharStrdup */
+    s = xmlCharStrdup("test");
+    if (s == NULL || xmlStrcmp(s, BAD_CAST "test") != 0) {
+        fprintf(stderr, "xmlCharStrdup failed\n");
+        err = 1;
+    }
+    xmlFree(s);
+
+    /* xmlCharStrndup */
+    s = xmlCharStrndup("testing", 4);
+    if (s == NULL || xmlStrcmp(s, BAD_CAST "test") != 0) {
+        fprintf(stderr, "xmlCharStrndup failed\n");
+        err = 1;
+    }
+    xmlFree(s);
+
+    /* xmlStrsub */
+    s = xmlStrsub(BAD_CAST "hello world", 6, 5);
+    if (s == NULL || xmlStrcmp(s, BAD_CAST "world") != 0) {
+        fprintf(stderr, "xmlStrsub failed\n");
+        err = 1;
+    }
+    xmlFree(s);
+
+    /* xmlStrsub past end */
+    if (xmlStrsub(BAD_CAST "hi", 5, 1) != NULL) {
+        fprintf(stderr, "xmlStrsub past end should return NULL\n");
+        err = 1;
+    }
+
+    /* xmlStrchr */
+    p = xmlStrchr(BAD_CAST "hello", 'l');
+    if (p == NULL || *p != 'l') {
+        fprintf(stderr, "xmlStrchr failed\n");
+        err = 1;
+    }
+
+    /* xmlStrchr not found */
+    if (xmlStrchr(BAD_CAST "hello", 'z') != NULL) {
+        fprintf(stderr, "xmlStrchr should return NULL for missing char\n");
+        err = 1;
+    }
+
+    /* xmlStrstr */
+    p = xmlStrstr(BAD_CAST "hello world", BAD_CAST "world");
+    if (p == NULL || xmlStrcmp(p, BAD_CAST "world") != 0) {
+        fprintf(stderr, "xmlStrstr failed\n");
+        err = 1;
+    }
+
+    /* xmlStrstr not found */
+    if (xmlStrstr(BAD_CAST "hello", BAD_CAST "xyz") != NULL) {
+        fprintf(stderr, "xmlStrstr should return NULL for missing needle\n");
+        err = 1;
+    }
+
+    /* xmlStrstr empty needle */
+    p = xmlStrstr(BAD_CAST "hello", BAD_CAST "");
+    if (p == NULL || xmlStrcmp(p, BAD_CAST "hello") != 0) {
+        fprintf(stderr, "xmlStrstr with empty needle failed\n");
+        err = 1;
+    }
+
+    return err;
+}
+
+static int
+testXmlStringCompare(void) {
+    int err = 0;
+
+    /* xmlStrcmp equal */
+    if (xmlStrcmp(BAD_CAST "abc", BAD_CAST "abc") != 0) {
+        fprintf(stderr, "xmlStrcmp equal failed\n");
+        err = 1;
+    }
+
+    /* xmlStrcmp less */
+    if (xmlStrcmp(BAD_CAST "abc", BAD_CAST "abd") >= 0) {
+        fprintf(stderr, "xmlStrcmp less failed\n");
+        err = 1;
+    }
+
+    /* xmlStrcmp greater */
+    if (xmlStrcmp(BAD_CAST "abd", BAD_CAST "abc") <= 0) {
+        fprintf(stderr, "xmlStrcmp greater failed\n");
+        err = 1;
+    }
+
+    /* xmlStrcmp NULL handling */
+    if (xmlStrcmp(NULL, BAD_CAST "a") >= 0) {
+        fprintf(stderr, "xmlStrcmp(NULL, s) should be negative\n");
+        err = 1;
+    }
+    if (xmlStrcmp(BAD_CAST "a", NULL) <= 0) {
+        fprintf(stderr, "xmlStrcmp(s, NULL) should be positive\n");
+        err = 1;
+    }
+    if (xmlStrcmp(NULL, NULL) != 0) {
+        fprintf(stderr, "xmlStrcmp(NULL, NULL) should be 0\n");
+        err = 1;
+    }
+
+    /* xmlStrncmp */
+    if (xmlStrncmp(BAD_CAST "abcdef", BAD_CAST "abcxyz", 3) != 0) {
+        fprintf(stderr, "xmlStrncmp prefix match failed\n");
+        err = 1;
+    }
+    if (xmlStrncmp(BAD_CAST "abc", BAD_CAST "abd", 3) >= 0) {
+        fprintf(stderr, "xmlStrncmp difference failed\n");
+        err = 1;
+    }
+    if (xmlStrncmp(BAD_CAST "a", BAD_CAST "b", 0) != 0) {
+        fprintf(stderr, "xmlStrncmp len=0 should return 0\n");
+        err = 1;
+    }
+
+    /* xmlStrEqual */
+    if (xmlStrEqual(BAD_CAST "abc", BAD_CAST "abc") != 1) {
+        fprintf(stderr, "xmlStrEqual equal failed\n");
+        err = 1;
+    }
+    if (xmlStrEqual(BAD_CAST "abc", BAD_CAST "xyz") != 0) {
+        fprintf(stderr, "xmlStrEqual not-equal failed\n");
+        err = 1;
+    }
+    if (xmlStrEqual(NULL, NULL) != 1) {
+        fprintf(stderr, "xmlStrEqual(NULL,NULL) should return 1\n");
+        err = 1;
+    }
+    if (xmlStrEqual(NULL, BAD_CAST "a") != 0) {
+        fprintf(stderr, "xmlStrEqual(NULL,s) should return 0\n");
+        err = 1;
+    }
+
+    /* xmlStrQEqual */
+    if (xmlStrQEqual(BAD_CAST "ns", BAD_CAST "local",
+                     BAD_CAST "ns:local") != 1) {
+        fprintf(stderr, "xmlStrQEqual match failed\n");
+        err = 1;
+    }
+    if (xmlStrQEqual(BAD_CAST "ns", BAD_CAST "local",
+                     BAD_CAST "ns:other") != 0) {
+        fprintf(stderr, "xmlStrQEqual mismatch failed\n");
+        err = 1;
+    }
+    if (xmlStrQEqual(NULL, BAD_CAST "local",
+                     BAD_CAST "local") != 1) {
+        fprintf(stderr, "xmlStrQEqual NULL prefix failed\n");
+        err = 1;
+    }
+
+    /* xmlStrcasecmp */
+    if (xmlStrcasecmp(BAD_CAST "Hello", BAD_CAST "hello") != 0) {
+        fprintf(stderr, "xmlStrcasecmp case-insensitive failed\n");
+        err = 1;
+    }
+    if (xmlStrcasecmp(BAD_CAST "abc", BAD_CAST "xyz") >= 0) {
+        fprintf(stderr, "xmlStrcasecmp ordering failed\n");
+        err = 1;
+    }
+
+    /* xmlStrncasecmp */
+    if (xmlStrncasecmp(BAD_CAST "Hello World", BAD_CAST "HELLO xyz", 5) != 0) {
+        fprintf(stderr, "xmlStrncasecmp prefix match failed\n");
+        err = 1;
+    }
+
+    /* xmlStrcasestr */
+    if (xmlStrcasestr(BAD_CAST "Hello World", BAD_CAST "WORLD") == NULL) {
+        fprintf(stderr, "xmlStrcasestr failed\n");
+        err = 1;
+    }
+    if (xmlStrcasestr(BAD_CAST "hello", BAD_CAST "XYZ") != NULL) {
+        fprintf(stderr, "xmlStrcasestr should return NULL for missing\n");
+        err = 1;
+    }
+
+    return err;
+}
+
+static int
+testXmlStringConcat(void) {
+    int err = 0;
+    xmlChar *s;
+
+    /* xmlStrcat */
+    s = xmlStrdup(BAD_CAST "hello");
+    s = xmlStrcat(s, BAD_CAST " world");
+    if (s == NULL || xmlStrcmp(s, BAD_CAST "hello world") != 0) {
+        fprintf(stderr, "xmlStrcat failed\n");
+        err = 1;
+    }
+    xmlFree(s);
+
+    /* xmlStrcat NULL cur */
+    s = xmlStrcat(NULL, BAD_CAST "hello");
+    if (s == NULL || xmlStrcmp(s, BAD_CAST "hello") != 0) {
+        fprintf(stderr, "xmlStrcat(NULL, s) should dup\n");
+        err = 1;
+    }
+    xmlFree(s);
+
+    /* xmlStrncat */
+    s = xmlStrdup(BAD_CAST "hello");
+    s = xmlStrncat(s, BAD_CAST " world!!", 6);
+    if (s == NULL || xmlStrcmp(s, BAD_CAST "hello world") != 0) {
+        fprintf(stderr, "xmlStrncat failed\n");
+        err = 1;
+    }
+    xmlFree(s);
+
+    /* xmlStrncat NULL cur */
+    s = xmlStrncat(NULL, BAD_CAST "hello", 5);
+    if (s == NULL || xmlStrcmp(s, BAD_CAST "hello") != 0) {
+        fprintf(stderr, "xmlStrncat(NULL, s, n) should dup\n");
+        err = 1;
+    }
+    xmlFree(s);
+
+    /* xmlStrncatNew */
+    s = xmlStrncatNew(BAD_CAST "hello", BAD_CAST " world!!", 6);
+    if (s == NULL || xmlStrcmp(s, BAD_CAST "hello world") != 0) {
+        fprintf(stderr, "xmlStrncatNew failed\n");
+        err = 1;
+    }
+    xmlFree(s);
+
+    /* xmlStrncatNew with len=-1 (auto-compute) */
+    s = xmlStrncatNew(BAD_CAST "hello", BAD_CAST " world", -1);
+    if (s == NULL || xmlStrcmp(s, BAD_CAST "hello world") != 0) {
+        fprintf(stderr, "xmlStrncatNew len=-1 failed\n");
+        err = 1;
+    }
+    xmlFree(s);
+
+    /* xmlStrncatNew NULL str1 */
+    s = xmlStrncatNew(NULL, BAD_CAST "hello", 5);
+    if (s == NULL || xmlStrcmp(s, BAD_CAST "hello") != 0) {
+        fprintf(stderr, "xmlStrncatNew(NULL, s, n) should dup\n");
+        err = 1;
+    }
+    xmlFree(s);
+
+    /* xmlStrPrintf */
+    {
+        xmlChar buf[64];
+        int ret = xmlStrPrintf(buf, 64, "num=%d str=%s", 42, "ok");
+        if (ret < 0 || xmlStrcmp(buf, BAD_CAST "num=42 str=ok") != 0) {
+            fprintf(stderr, "xmlStrPrintf failed\n");
+            err = 1;
+        }
+    }
+
+    return err;
+}
+
+static int
+testXmlStringUTF8(void) {
+    int err = 0;
+    int len;
+    int val;
+    xmlChar *s;
+    const xmlChar *p;
+
+    /* 2-byte UTF-8: U+00E9 (é) = 0xC3 0xA9 */
+    const xmlChar utf8_cafe[] = { 'c', 'a', 'f', 0xC3, 0xA9, 0 };
+    /* 3-byte UTF-8: U+4E16 (世) = 0xE4 0xB8 0x96 */
+    const xmlChar utf8_cjk[] = { 0xE4, 0xB8, 0x96, 0xE7, 0x95, 0x8C, 0 };
+    /* 4-byte UTF-8: U+1F600 = 0xF0 0x9F 0x98 0x80 */
+    const xmlChar utf8_emoji[] = { 0xF0, 0x9F, 0x98, 0x80, 0 };
+
+    /* xmlUTF8Strlen: ASCII */
+    if (xmlUTF8Strlen(BAD_CAST "hello") != 5) {
+        fprintf(stderr, "xmlUTF8Strlen ASCII failed\n");
+        err = 1;
+    }
+
+    /* xmlUTF8Strlen: 2-byte chars ("café" = 4 chars) */
+    if (xmlUTF8Strlen(utf8_cafe) != 4) {
+        fprintf(stderr, "xmlUTF8Strlen 2-byte failed: got %d, expected 4\n",
+                xmlUTF8Strlen(utf8_cafe));
+        err = 1;
+    }
+
+    /* xmlUTF8Strlen: 3-byte chars (2 CJK chars) */
+    if (xmlUTF8Strlen(utf8_cjk) != 2) {
+        fprintf(stderr, "xmlUTF8Strlen 3-byte failed: got %d, expected 2\n",
+                xmlUTF8Strlen(utf8_cjk));
+        err = 1;
+    }
+
+    /* xmlUTF8Strlen: 4-byte char (1 emoji) */
+    if (xmlUTF8Strlen(utf8_emoji) != 1) {
+        fprintf(stderr, "xmlUTF8Strlen 4-byte failed: got %d, expected 1\n",
+                xmlUTF8Strlen(utf8_emoji));
+        err = 1;
+    }
+
+    /* xmlUTF8Strlen NULL */
+    if (xmlUTF8Strlen(NULL) != -1) {
+        fprintf(stderr, "xmlUTF8Strlen(NULL) should return -1\n");
+        err = 1;
+    }
+
+    /* xmlUTF8Size */
+    if (xmlUTF8Size(BAD_CAST "a") != 1) {
+        fprintf(stderr, "xmlUTF8Size ASCII failed\n");
+        err = 1;
+    }
+    if (xmlUTF8Size(utf8_cafe + 3) != 2) {
+        fprintf(stderr, "xmlUTF8Size 2-byte failed\n");
+        err = 1;
+    }
+    if (xmlUTF8Size(utf8_cjk) != 3) {
+        fprintf(stderr, "xmlUTF8Size 3-byte failed\n");
+        err = 1;
+    }
+    if (xmlUTF8Size(utf8_emoji) != 4) {
+        fprintf(stderr, "xmlUTF8Size 4-byte failed\n");
+        err = 1;
+    }
+
+    /* xmlGetUTF8Char: ASCII 'A' */
+    len = 4;
+    val = xmlGetUTF8Char(BAD_CAST "A", &len);
+    if (val != 'A' || len != 1) {
+        fprintf(stderr, "xmlGetUTF8Char ASCII failed\n");
+        err = 1;
+    }
+
+    /* xmlGetUTF8Char: 2-byte U+00E9 */
+    len = 4;
+    val = xmlGetUTF8Char(utf8_cafe + 3, &len);
+    if (val != 0xE9 || len != 2) {
+        fprintf(stderr, "xmlGetUTF8Char 2-byte failed: val=0x%X len=%d\n",
+                val, len);
+        err = 1;
+    }
+
+    /* xmlGetUTF8Char: 3-byte U+4E16 */
+    len = 4;
+    val = xmlGetUTF8Char(utf8_cjk, &len);
+    if (val != 0x4E16 || len != 3) {
+        fprintf(stderr, "xmlGetUTF8Char 3-byte failed: val=0x%X len=%d\n",
+                val, len);
+        err = 1;
+    }
+
+    /* xmlGetUTF8Char: 4-byte U+1F600 */
+    len = 4;
+    val = xmlGetUTF8Char(utf8_emoji, &len);
+    if (val != 0x1F600 || len != 4) {
+        fprintf(stderr, "xmlGetUTF8Char 4-byte failed: val=0x%X len=%d\n",
+                val, len);
+        err = 1;
+    }
+
+    /* xmlCheckUTF8 */
+    if (xmlCheckUTF8(BAD_CAST "hello") != 1) {
+        fprintf(stderr, "xmlCheckUTF8 ASCII failed\n");
+        err = 1;
+    }
+    if (xmlCheckUTF8(utf8_cafe) != 1) {
+        fprintf(stderr, "xmlCheckUTF8 valid multi-byte failed\n");
+        err = 1;
+    }
+    if (xmlCheckUTF8(NULL) != 0) {
+        fprintf(stderr, "xmlCheckUTF8(NULL) should return 0\n");
+        err = 1;
+    }
+    {
+        /* Invalid: continuation byte without leading byte */
+        const unsigned char bad[] = { 0x80, 0 };
+        if (xmlCheckUTF8(bad) != 0) {
+            fprintf(stderr, "xmlCheckUTF8 invalid sequence should return 0\n");
+            err = 1;
+        }
+    }
+
+    /* xmlUTF8Strsize: bytes needed for first N chars */
+    if (xmlUTF8Strsize(utf8_cafe, 4) != 5) {
+        fprintf(stderr, "xmlUTF8Strsize failed: got %d, expected 5\n",
+                xmlUTF8Strsize(utf8_cafe, 4));
+        err = 1;
+    }
+
+    /* xmlUTF8Strndup: dup first 3 chars of "café" -> "caf" */
+    s = xmlUTF8Strndup(utf8_cafe, 3);
+    if (s == NULL || xmlStrcmp(s, BAD_CAST "caf") != 0) {
+        fprintf(stderr, "xmlUTF8Strndup failed\n");
+        err = 1;
+    }
+    xmlFree(s);
+
+    /* xmlUTF8Strpos: position of 4th char in "café" -> points to é */
+    p = xmlUTF8Strpos(utf8_cafe, 3);
+    if (p == NULL || p != utf8_cafe + 3) {
+        fprintf(stderr, "xmlUTF8Strpos failed\n");
+        err = 1;
+    }
+
+    /* xmlUTF8Strloc: find é in "café" -> position 3 */
+    {
+        const xmlChar e_accent[] = { 0xC3, 0xA9, 0 };
+        if (xmlUTF8Strloc(utf8_cafe, e_accent) != 3) {
+            fprintf(stderr, "xmlUTF8Strloc failed: got %d, expected 3\n",
+                    xmlUTF8Strloc(utf8_cafe, e_accent));
+            err = 1;
+        }
+    }
+
+    /* xmlUTF8Charcmp */
+    if (xmlUTF8Charcmp(BAD_CAST "a", BAD_CAST "a") != 0) {
+        fprintf(stderr, "xmlUTF8Charcmp equal failed\n");
+        err = 1;
+    }
+    if (xmlUTF8Charcmp(BAD_CAST "a", BAD_CAST "b") >= 0) {
+        fprintf(stderr, "xmlUTF8Charcmp less failed\n");
+        err = 1;
+    }
+
+    return err;
+}
+
+static int
 testParseURISafe(void) {
     int err = 0;
     int i;
@@ -1818,6 +2283,10 @@ main(void) {
     err |= testCharEncConvImpl();
     err |= testRemoveParamEntityIntSubset();
     err |= testRemoveParamEntityExtSubset();
+    err |= testXmlStringBasic();
+    err |= testXmlStringCompare();
+    err |= testXmlStringConcat();
+    err |= testXmlStringUTF8();
     err |= testParseURISafe();
     err |= testCanonicPath();
 
