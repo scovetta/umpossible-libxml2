@@ -1170,6 +1170,135 @@ testWriterClose(void){
 #endif
 
 typedef struct {
+    const char *input;
+    const char *expected;
+} xmlUriStringTest;
+
+static int
+testNormalizeURIPath(void) {
+    int err = 0;
+    int i;
+
+    static const xmlUriStringTest tests[] = {
+        /* Dot segments */
+        { "/a/b/./c",      "/a/b/c"   },
+        { "/a/b/../c",     "/a/c"     },
+        { "/a/b/../../c",  "/c"       },
+        { "/a/./b/./c",    "/a/b/c"   },
+        { "/a/b/c/.",      "/a/b/c/"  },
+        /* Relative paths */
+        { "a/b/../c",      "a/c"      },
+        { "./a/b",         "a/b"      },
+        /* Already normalized */
+        { "/a/b/c",        "/a/b/c"   },
+        /* Empty and root */
+        { "/",             "/"        },
+    };
+
+    for (i = 0; (size_t) i < sizeof(tests) / sizeof(tests[0]); i++) {
+        char path[256];
+        int ret;
+
+        strncpy(path, tests[i].input, sizeof(path) - 1);
+        path[sizeof(path) - 1] = 0;
+
+        ret = xmlNormalizeURIPath(path);
+        if (ret != 0) {
+            fprintf(stderr, "xmlNormalizeURIPath(%s) returned %d\n",
+                    tests[i].input, ret);
+            err = 1;
+            continue;
+        }
+        if (strcmp(path, tests[i].expected) != 0) {
+            fprintf(stderr, "xmlNormalizeURIPath(%s) = \"%s\", expected \"%s\"\n",
+                    tests[i].input, path, tests[i].expected);
+            err = 1;
+        }
+    }
+
+    return err;
+}
+
+static int
+testURIEscapeStr(void) {
+    xmlChar *res;
+    int err = 0;
+    int i;
+
+    static const xmlUriStringTest tests[] = {
+        /* Plain ASCII — nothing to escape */
+        { "hello",              "hello"              },
+        /* Space must be escaped */
+        { "hello world",        "hello%20world"      },
+        /* Empty string */
+        { "",                   ""                   },
+        /* Characters that must be escaped */
+        { "a<b>c",              "a%3Cb%3Ec"          },
+        /* Already percent-encoded string passes through intact */
+        { "a%20b",              "a%2520b"            },
+    };
+
+    for (i = 0; (size_t) i < sizeof(tests) / sizeof(tests[0]); i++) {
+        /* Empty list means no exceptions */
+        res = xmlURIEscapeStr(BAD_CAST tests[i].input, BAD_CAST "");
+        if (res == NULL) {
+            fprintf(stderr, "xmlURIEscapeStr(%s) returned NULL\n",
+                    tests[i].input);
+            err = 1;
+            continue;
+        }
+        if (strcmp((char *) res, tests[i].expected) != 0) {
+            fprintf(stderr, "xmlURIEscapeStr(%s) = \"%s\", expected \"%s\"\n",
+                    tests[i].input, res, tests[i].expected);
+            err = 1;
+        }
+        xmlFree(res);
+    }
+
+    return err;
+}
+
+static int
+testURIUnescapeString(void) {
+    char *res;
+    int err = 0;
+    int i;
+
+    static const xmlUriStringTest tests[] = {
+        /* Simple percent-encoded sequences */
+        { "hello%20world",      "hello world"  },
+        { "%41%42%43",          "ABC"          },
+        /* Mixed case hex digits */
+        { "%4a%4B",             "JK"           },
+        /* Nothing to unescape */
+        { "hello",              "hello"        },
+        /* Empty string */
+        { "",                   ""             },
+        /* Truncated sequence at end treated as literal */
+        { "a%2",                "a%2"          },
+    };
+
+    for (i = 0; (size_t) i < sizeof(tests) / sizeof(tests[0]); i++) {
+        /* len <= 0 means use strlen */
+        res = xmlURIUnescapeString(tests[i].input, -1, NULL);
+        if (res == NULL) {
+            fprintf(stderr, "xmlURIUnescapeString(%s) returned NULL\n",
+                    tests[i].input);
+            err = 1;
+            continue;
+        }
+        if (strcmp(res, tests[i].expected) != 0) {
+            fprintf(stderr, "xmlURIUnescapeString(%s) = \"%s\", expected \"%s\"\n",
+                    tests[i].input, res, tests[i].expected);
+            err = 1;
+        }
+        xmlFree(res);
+    }
+
+    return err;
+}
+
+typedef struct {
     const char *uri;
     const char *base;
     const char *result;
@@ -1645,6 +1774,9 @@ main(void) {
 #ifdef LIBXML_WRITER_ENABLED
     err |= testWriterClose();
 #endif
+    err |= testNormalizeURIPath();
+    err |= testURIEscapeStr();
+    err |= testURIUnescapeString();
     err |= testBuildRelativeUri();
 #if defined(LIBXML_WINPATH_ENABLED)
     err |= testWindowsUri();
