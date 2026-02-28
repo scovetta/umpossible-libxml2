@@ -1,3 +1,6 @@
+/* SPDX-License-Identifier: MIT */
+/* Copyright (C) 1998-2024 Daniel Veillard and the libxml2 contributors. */
+
 /*
  * icu.c: Example how to use ICU for character encoding conversion
  *
