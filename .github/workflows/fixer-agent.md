@@ -22,7 +22,7 @@ safe-outputs:
     target: "*"
     max: 3
   add-labels:
-    allowed: [fix-in-progress, fix-assigned, wontfix, needs-human-review]
+    allowed: [fix-in-progress, fix-assigned, wontfix, needs-human]
     max: 3
     target: "*"
 ---

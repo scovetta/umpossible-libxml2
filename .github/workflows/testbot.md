@@ -27,7 +27,7 @@ safe-outputs:
     target: "*"
     max: 5
   add-labels:
-    allowed: [testing, blocked, test-reviewed]
+    allowed: [testing, blocked, test-reviewed, needs-human]
     max: 3
     target: "*"
 ---

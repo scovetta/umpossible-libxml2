@@ -27,7 +27,7 @@ safe-outputs:
     target: "*"
     max: 3
   add-labels:
-    allowed: [license, dependencies, blocked, license-reviewed]
+    allowed: [license, dependencies, blocked, license-reviewed, needs-human]
     max: 3
     target: "*"
 ---

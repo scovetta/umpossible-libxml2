@@ -137,3 +137,19 @@ Agent-created issues use title prefixes and labels:
 | Fixer Agent | N/A (assigns Copilot) | `copilot-fix` |
 
 Priority labels: `priority-high`, `priority-medium`, `priority-low`
+
+### Cross-Cutting Labels
+
+| Label | Meaning | When to apply |
+|-------|---------|---------------|
+| `needs-human` | Requires human decision or intervention | Ambiguous situations, policy decisions, legal/licensing questions, security decisions with business impact, architecture choices the bot can't make |
+| `blocked` | Work is blocked on something | External dependency, failing CI, missing information |
+| `needs-review` | Needs human review before proceeding | Significant automated changes, risky fixes |
+
+**`needs-human` guidelines:** Apply this label when you encounter a situation that is outside your authority or confidence to resolve autonomously. Examples:
+- License incompatibility requiring a business/legal decision
+- Security vulnerability with trade-offs (fix breaks backward compatibility)
+- Conflicting requirements between issues
+- Code changes that alter public API contracts
+- Ambiguous bug reports that need clarification from a maintainer
+- Any situation where you're uncertain and the cost of being wrong is high

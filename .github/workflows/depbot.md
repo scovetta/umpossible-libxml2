@@ -31,7 +31,7 @@ safe-outputs:
     target: "*"
     max: 5
   add-labels:
-    allowed: [dependencies, security, testing, dep-reviewed]
+    allowed: [dependencies, security, testing, dep-reviewed, needs-human]
     max: 3
     target: "*"
 ---

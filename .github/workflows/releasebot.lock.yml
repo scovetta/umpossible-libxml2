@@ -22,7 +22,7 @@
 # For more information: https://github.github.com/gh-aw/introduction/overview/
 #
 #
-# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"d374c4e343e57ad8a94181ffe27f907e2cc74dd6d7e0a2c2bd568da6c93ce8a0","compiler_version":"v0.50.5"}
+# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"7b60bb53953acbd9a6b9aea0b128f971fb97e94f21ea2b44a7c860cb4026cce0","compiler_version":"v0.50.5"}
 
 name: "Releasebot"
 "on":
@@ -346,7 +346,7 @@ jobs:
           mkdir -p /tmp/gh-aw/safeoutputs
           mkdir -p /tmp/gh-aw/mcp-logs/safeoutputs
           cat > /opt/gh-aw/safeoutputs/config.json << 'GH_AW_SAFE_OUTPUTS_CONFIG_EOF'
-          {"add_comment":{"max":3,"target":"*"},"add_labels":{"allowed":["release","blocked","security"],"max":3,"target":"*"},"create_issue":{"expires":336,"max":3},"create_pull_request":{"expires":14,"max":1},"missing_data":{},"missing_tool":{},"noop":{"max":1}}
+          {"add_comment":{"max":3,"target":"*"},"add_labels":{"allowed":["release","blocked","security","needs-human"],"max":3,"target":"*"},"create_issue":{"expires":336,"max":3},"create_pull_request":{"expires":14,"max":1},"missing_data":{},"missing_tool":{},"noop":{"max":1}}
           GH_AW_SAFE_OUTPUTS_CONFIG_EOF
           cat > /opt/gh-aw/safeoutputs/tools.json << 'GH_AW_SAFE_OUTPUTS_TOOLS_EOF'
           [
@@ -450,7 +450,7 @@ jobs:
               "name": "create_pull_request"
             },
             {
-              "description": "Add labels to an existing GitHub issue or pull request for categorization and filtering. Labels must already exist in the repository. For creating new issues with labels, use create_issue with the labels property instead. CONSTRAINTS: Maximum 3 label(s) can be added. Only these labels are allowed: [release blocked security]. Target: *.",
+              "description": "Add labels to an existing GitHub issue or pull request for categorization and filtering. Labels must already exist in the repository. For creating new issues with labels, use create_issue with the labels property instead. CONSTRAINTS: Maximum 3 label(s) can be added. Only these labels are allowed: [release blocked security needs-human]. Target: *.",
               "inputSchema": {
                 "additionalProperties": false,
                 "properties": {
@@ -1287,7 +1287,7 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           GH_AW_AGENT_OUTPUT: ${{ env.GH_AW_AGENT_OUTPUT }}
-          GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\"add_comment\":{\"max\":3,\"target\":\"*\"},\"add_labels\":{\"allowed\":[\"release\",\"blocked\",\"security\"],\"max\":3,\"target\":\"*\"},\"create_issue\":{\"expires\":336,\"labels\":[\"automation\",\"release\"],\"max\":3,\"title_prefix\":\"[release] \"},\"create_pull_request\":{\"base_branch\":\"${{ github.base_ref || github.ref_name }}\",\"draft\":true,\"expires\":14,\"labels\":[\"automation\",\"release\"],\"max\":1,\"max_patch_size\":1024,\"title_prefix\":\"[release-infra] \"},\"missing_data\":{},\"missing_tool\":{}}"
+          GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\"add_comment\":{\"max\":3,\"target\":\"*\"},\"add_labels\":{\"allowed\":[\"release\",\"blocked\",\"security\",\"needs-human\"],\"max\":3,\"target\":\"*\"},\"create_issue\":{\"expires\":336,\"labels\":[\"automation\",\"release\"],\"max\":3,\"title_prefix\":\"[release] \"},\"create_pull_request\":{\"base_branch\":\"${{ github.base_ref || github.ref_name }}\",\"draft\":true,\"expires\":14,\"labels\":[\"automation\",\"release\"],\"max\":1,\"max_patch_size\":1024,\"title_prefix\":\"[release-infra] \"},\"missing_data\":{},\"missing_tool\":{}}"
           GH_AW_CI_TRIGGER_TOKEN: ${{ secrets.GH_AW_CI_TRIGGER_TOKEN }}
         with:
           github-token: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}

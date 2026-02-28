@@ -26,7 +26,7 @@ safe-outputs:
     target: "*"
     max: 5
   add-labels:
-    allowed: [security, testing, documentation, performance, build, license, release, dependencies, needs-review, approved, blocked, priority-high, priority-medium, priority-low]
+    allowed: [security, testing, documentation, performance, build, license, release, dependencies, needs-review, approved, blocked, priority-high, priority-medium, priority-low, needs-human]
     max: 5
     target: "*"
 ---

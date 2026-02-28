@@ -22,7 +22,7 @@
 # For more information: https://github.github.com/gh-aw/introduction/overview/
 #
 #
-# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"ae09792782380e3796d77188af3b1506fe83dc67088928475f8ff1f1b66bb35e","compiler_version":"v0.50.5"}
+# gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"e48f7aac4971fab37fcefb4c09ce2e612bad38eef81cc8b108325c7ddb8cffb1","compiler_version":"v0.50.5"}
 
 name: "Orchestrator"
 "on":
@@ -347,7 +347,7 @@ jobs:
           mkdir -p /tmp/gh-aw/safeoutputs
           mkdir -p /tmp/gh-aw/mcp-logs/safeoutputs
           cat > /opt/gh-aw/safeoutputs/config.json << 'GH_AW_SAFE_OUTPUTS_CONFIG_EOF'
-          {"add_comment":{"max":5,"target":"*"},"add_labels":{"allowed":["security","testing","documentation","performance","build","license","release","dependencies","needs-review","approved","blocked","priority-high","priority-medium","priority-low"],"max":5,"target":"*"},"create_issue":{"expires":48,"max":1},"dispatch_workflow":{"max":9,"workflow_files":{"buildbot":".lock.yml","depbot":".lock.yml","docbot":".lock.yml","fixer-agent":".lock.yml","licensebot":".lock.yml","perfbot":".lock.yml","releasebot":".lock.yml","securibot":".lock.yml","testbot":".lock.yml"},"workflows":["securibot","testbot","buildbot","depbot","docbot","perfbot","licensebot","releasebot","fixer-agent"]},"missing_data":{},"missing_tool":{},"noop":{"max":1}}
+          {"add_comment":{"max":5,"target":"*"},"add_labels":{"allowed":["security","testing","documentation","performance","build","license","release","dependencies","needs-review","approved","blocked","priority-high","priority-medium","priority-low","needs-human"],"max":5,"target":"*"},"create_issue":{"expires":48,"max":1},"dispatch_workflow":{"max":9,"workflow_files":{"buildbot":".lock.yml","depbot":".lock.yml","docbot":".lock.yml","fixer-agent":".lock.yml","licensebot":".lock.yml","perfbot":".lock.yml","releasebot":".lock.yml","securibot":".lock.yml","testbot":".lock.yml"},"workflows":["securibot","testbot","buildbot","depbot","docbot","perfbot","licensebot","releasebot","fixer-agent"]},"missing_data":{},"missing_tool":{},"noop":{"max":1}}
           GH_AW_SAFE_OUTPUTS_CONFIG_EOF
           cat > /opt/gh-aw/safeoutputs/tools.json << 'GH_AW_SAFE_OUTPUTS_TOOLS_EOF'
           [
@@ -414,7 +414,7 @@ jobs:
               "name": "add_comment"
             },
             {
-              "description": "Add labels to an existing GitHub issue or pull request for categorization and filtering. Labels must already exist in the repository. For creating new issues with labels, use create_issue with the labels property instead. CONSTRAINTS: Maximum 5 label(s) can be added. Only these labels are allowed: [security testing documentation performance build license release dependencies needs-review approved blocked priority-high priority-medium priority-low]. Target: *.",
+              "description": "Add labels to an existing GitHub issue or pull request for categorization and filtering. Labels must already exist in the repository. For creating new issues with labels, use create_issue with the labels property instead. CONSTRAINTS: Maximum 5 label(s) can be added. Only these labels are allowed: [security testing documentation performance build license release dependencies needs-review approved blocked priority-high priority-medium priority-low needs-human]. Target: *.",
               "inputSchema": {
                 "additionalProperties": false,
                 "properties": {
@@ -1260,7 +1260,7 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           GH_AW_AGENT_OUTPUT: ${{ env.GH_AW_AGENT_OUTPUT }}
-          GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\"add_comment\":{\"max\":5,\"target\":\"*\"},\"add_labels\":{\"allowed\":[\"security\",\"testing\",\"documentation\",\"performance\",\"build\",\"license\",\"release\",\"dependencies\",\"needs-review\",\"approved\",\"blocked\",\"priority-high\",\"priority-medium\",\"priority-low\"],\"max\":5,\"target\":\"*\"},\"create_issue\":{\"close_older_issues\":true,\"expires\":48,\"labels\":[\"automation\",\"pm-orchestrator\"],\"max\":1,\"title_prefix\":\"[pm-daily] \"},\"dispatch_workflow\":{\"max\":9,\"workflow_files\":{\"buildbot\":\".lock.yml\",\"depbot\":\".lock.yml\",\"docbot\":\".lock.yml\",\"fixer-agent\":\".lock.yml\",\"licensebot\":\".lock.yml\",\"perfbot\":\".lock.yml\",\"releasebot\":\".lock.yml\",\"securibot\":\".lock.yml\",\"testbot\":\".lock.yml\"},\"workflows\":[\"securibot\",\"testbot\",\"buildbot\",\"depbot\",\"docbot\",\"perfbot\",\"licensebot\",\"releasebot\",\"fixer-agent\"]},\"missing_data\":{},\"missing_tool\":{}}"
+          GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\"add_comment\":{\"max\":5,\"target\":\"*\"},\"add_labels\":{\"allowed\":[\"security\",\"testing\",\"documentation\",\"performance\",\"build\",\"license\",\"release\",\"dependencies\",\"needs-review\",\"approved\",\"blocked\",\"priority-high\",\"priority-medium\",\"priority-low\",\"needs-human\"],\"max\":5,\"target\":\"*\"},\"create_issue\":{\"close_older_issues\":true,\"expires\":48,\"labels\":[\"automation\",\"pm-orchestrator\"],\"max\":1,\"title_prefix\":\"[pm-daily] \"},\"dispatch_workflow\":{\"max\":9,\"workflow_files\":{\"buildbot\":\".lock.yml\",\"depbot\":\".lock.yml\",\"docbot\":\".lock.yml\",\"fixer-agent\":\".lock.yml\",\"licensebot\":\".lock.yml\",\"perfbot\":\".lock.yml\",\"releasebot\":\".lock.yml\",\"securibot\":\".lock.yml\",\"testbot\":\".lock.yml\"},\"workflows\":[\"securibot\",\"testbot\",\"buildbot\",\"depbot\",\"docbot\",\"perfbot\",\"licensebot\",\"releasebot\",\"fixer-agent\"]},\"missing_data\":{},\"missing_tool\":{}}"
         with:
           github-token: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
           script: |

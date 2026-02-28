@@ -27,7 +27,7 @@ safe-outputs:
     target: "*"
     max: 5
   add-labels:
-    allowed: [build, blocked, security, build-reviewed]
+    allowed: [build, blocked, security, build-reviewed, needs-human]
     max: 3
     target: "*"
 ---
