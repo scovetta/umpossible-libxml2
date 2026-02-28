@@ -4,6 +4,10 @@ on:
     types: [opened, labeled]
   workflow_dispatch:
 
+engine:
+  id: copilot
+  model: claude-opus-4.6
+
 permissions: read-all
 
 tools:

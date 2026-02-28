@@ -3,6 +3,10 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
 
+engine:
+  id: copilot
+  model: claude-opus-4.6
+
 permissions: read-all
 
 tools:

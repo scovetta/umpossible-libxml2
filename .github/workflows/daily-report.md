@@ -4,6 +4,10 @@ on:
     - cron: "0 8 * * 1-5"  # Weekday mornings, 2 hours after orchestrator
   workflow_dispatch:        # Manual trigger for testing
 
+engine:
+  id: copilot
+  model: claude-sonnet-4
+
 permissions: read-all
 
 tools:

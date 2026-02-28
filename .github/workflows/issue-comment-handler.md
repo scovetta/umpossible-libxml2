@@ -3,6 +3,10 @@ on:
   issue_comment:
     types: [created]
 
+engine:
+  id: copilot
+  model: claude-sonnet-4
+
 permissions: read-all
 
 tools:

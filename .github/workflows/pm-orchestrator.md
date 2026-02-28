@@ -4,6 +4,10 @@ on:
     - cron: "0 6 * * 1-5"  # Weekday mornings at 6:00 UTC
   workflow_dispatch:        # Manual trigger for testing
 
+engine:
+  id: copilot
+  model: claude-opus-4.6
+
 permissions: read-all
 
 tools:
