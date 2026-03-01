@@ -1298,6 +1298,182 @@ testBuildRelativeUri(void) {
     return err;
 }
 
+typedef struct {
+    const char *uri;
+    const char *base;
+    int expectedRet;
+    const char *expectedVal; /* NULL means valPtr should be NULL */
+} xmlBuildUriSafeTest;
+
+static int
+testBuildURISafe(void) {
+    xmlChar *val = NULL;
+    int ret;
+    int err = 0;
+    int i;
+
+    static const xmlBuildUriSafeTest tests[] = {
+        /* NULL URI returns error */
+        { NULL, NULL, 1, NULL },
+        { NULL, "http://example.com/", 1, NULL },
+        /* NULL base returns copy of URI */
+        { "http://example.com/", NULL, 0, "http://example.com/" },
+        /* Absolute URI returned as-is regardless of base */
+        { "http://example.com/a", "http://example.com/b", 0,
+          "http://example.com/a" },
+        { "https://other.org/x", "http://example.com/y", 0,
+          "https://other.org/x" },
+        /* Empty URI uses base (fragment stripped) */
+        { "", "http://example.com/dir/file", 0,
+          "http://example.com/dir/file" },
+        { "", "http://example.com/dir/file#frag", 0,
+          "http://example.com/dir/file" },
+        /* Relative path resolution */
+        { "rel.html", "http://example.com/dir/file", 0,
+          "http://example.com/dir/rel.html" },
+        { "../other.html", "http://example.com/a/b/c", 0,
+          "http://example.com/a/other.html" },
+        { "../../top.html", "http://example.com/a/b/c", 0,
+          "http://example.com/top.html" },
+        /* Absolute path ref */
+        { "/abs/path", "http://example.com/dir/file", 0,
+          "http://example.com/abs/path" },
+        /* Query-only ref inherits base path */
+        { "?query", "http://example.com/path", 0,
+          "http://example.com/path?query" },
+        /* Fragment-only ref inherits base path */
+        { "#frag", "http://example.com/path", 0,
+          "http://example.com/path#frag" },
+        /* Network-path ref (different authority) */
+        { "//other.com/path", "http://example.com/", 0,
+          "http://other.com/path" },
+    };
+
+    for (i = 0; (size_t) i < sizeof(tests) / sizeof(tests[0]); i++) {
+        const xmlBuildUriSafeTest *test = tests + i;
+
+        val = NULL;
+        ret = xmlBuildURISafe(BAD_CAST test->uri, BAD_CAST test->base, &val);
+        if (ret != test->expectedRet) {
+            fprintf(stderr, "xmlBuildURISafe ret=%d expected=%d "
+                    "uri=%s base=%s\n",
+                    ret, test->expectedRet,
+                    test->uri ? test->uri : "(null)",
+                    test->base ? test->base : "(null)");
+            err = 1;
+        }
+        if (test->expectedVal == NULL) {
+            if (val != NULL) {
+                fprintf(stderr, "xmlBuildURISafe expected NULL got=%s "
+                        "uri=%s base=%s\n",
+                        val,
+                        test->uri ? test->uri : "(null)",
+                        test->base ? test->base : "(null)");
+                err = 1;
+            }
+        } else {
+            if (!xmlStrEqual(val, BAD_CAST test->expectedVal)) {
+                fprintf(stderr, "xmlBuildURISafe result=%s expected=%s "
+                        "uri=%s base=%s\n",
+                        val ? (const char *) val : "(null)",
+                        test->expectedVal,
+                        test->uri ? test->uri : "(null)",
+                        test->base ? test->base : "(null)");
+                err = 1;
+            }
+        }
+        xmlFree(val);
+    }
+
+    /* Verify NULL valPtr returns error without crash */
+    ret = xmlBuildURISafe(BAD_CAST "http://example.com/", NULL, NULL);
+    if (ret != 1) {
+        fprintf(stderr, "xmlBuildURISafe NULL valPtr ret=%d expected=1\n", ret);
+        err = 1;
+    }
+
+    return err;
+}
+
+static int
+testBuildRelativeURISafe(void) {
+    xmlChar *val = NULL;
+    int ret;
+    int err = 0;
+    int i;
+
+    static const xmlBuildUriSafeTest tests[] = {
+        /* NULL/empty URI returns error */
+        { NULL, "http://example.com/", 1, NULL },
+        { "", "http://example.com/", 1, NULL },
+        /* NULL/empty base returns URI as-is */
+        { "http://example.com/a/b", NULL, 0, "http://example.com/a/b" },
+        { "http://example.com/a/b", "", 0, "http://example.com/a/b" },
+        /* Same scheme+authority: compute relative path */
+        { "http://example.com/a/b1/c1", "http://example.com/a/b2/c2", 0,
+          "../b1/c1" },
+        /* Same path: empty string */
+        { "http://example.com/path", "http://example.com/path", 0, "" },
+        /* Different schemes: return URI */
+        { "http://example.com/path", "https://example.com/path", 0,
+          "http://example.com/path" },
+        /* Different servers: return URI */
+        { "http://a.com/path", "http://b.com/path", 0,
+          "http://a.com/path" },
+        /* Deeper relative path */
+        { "/a/b/c/d", "/a/b/e/f", 0, "../c/d" },
+        /* Sibling file */
+        { "/a/b/file2", "/a/b/file1", 0, "file2" },
+    };
+
+    for (i = 0; (size_t) i < sizeof(tests) / sizeof(tests[0]); i++) {
+        const xmlBuildUriSafeTest *test = tests + i;
+
+        val = NULL;
+        ret = xmlBuildRelativeURISafe(BAD_CAST test->uri,
+                                      BAD_CAST test->base, &val);
+        if (ret != test->expectedRet) {
+            fprintf(stderr, "xmlBuildRelativeURISafe ret=%d expected=%d "
+                    "uri=%s base=%s\n",
+                    ret, test->expectedRet,
+                    test->uri ? test->uri : "(null)",
+                    test->base ? test->base : "(null)");
+            err = 1;
+        }
+        if (test->expectedVal == NULL) {
+            if (val != NULL) {
+                fprintf(stderr, "xmlBuildRelativeURISafe expected NULL "
+                        "got=%s uri=%s base=%s\n",
+                        val,
+                        test->uri ? test->uri : "(null)",
+                        test->base ? test->base : "(null)");
+                err = 1;
+            }
+        } else {
+            if (!xmlStrEqual(val, BAD_CAST test->expectedVal)) {
+                fprintf(stderr, "xmlBuildRelativeURISafe result=%s "
+                        "expected=%s uri=%s base=%s\n",
+                        val ? (const char *) val : "(null)",
+                        test->expectedVal,
+                        test->uri ? test->uri : "(null)",
+                        test->base ? test->base : "(null)");
+                err = 1;
+            }
+        }
+        xmlFree(val);
+    }
+
+    /* Verify NULL valPtr returns error without crash */
+    ret = xmlBuildRelativeURISafe(BAD_CAST "http://example.com/", NULL, NULL);
+    if (ret != 1) {
+        fprintf(stderr, "xmlBuildRelativeURISafe NULL valPtr ret=%d "
+                "expected=1\n", ret);
+        err = 1;
+    }
+
+    return err;
+}
+
 #if defined(LIBXML_WINPATH_ENABLED)
 static int
 testWindowsUri(void) {
@@ -2111,6 +2287,8 @@ main(void) {
     err |= testWriterClose();
 #endif
     err |= testBuildRelativeUri();
+    err |= testBuildURISafe();
+    err |= testBuildRelativeURISafe();
 #if defined(LIBXML_WINPATH_ENABLED)
     err |= testWindowsUri();
 #endif
