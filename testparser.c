@@ -9,6 +9,7 @@
 #include "libxml.h"
 #include <libxml/parser.h>
 #include <libxml/parserInternals.h>
+#include <libxml/hash.h>
 #include <libxml/uri.h>
 #include <libxml/xmlreader.h>
 #include <libxml/xmlsave.h>
@@ -2057,6 +2058,348 @@ testXmlStringUTF8(void) {
     return err;
 }
 
+static void
+hashScanCount(void *payload ATTRIBUTE_UNUSED,
+              void *data,
+              const xmlChar *name ATTRIBUTE_UNUSED) {
+    int *count = (int *) data;
+    (*count)++;
+}
+
+static void *
+hashCopyPayload(void *payload, const xmlChar *name ATTRIBUTE_UNUSED) {
+    return payload;
+}
+
+static int
+testHashTableBasic(void) {
+    xmlHashTablePtr hash;
+    int err = 0;
+    int ret;
+
+    /* Create and free empty hash */
+    hash = xmlHashCreate(0);
+    if (hash == NULL) {
+        fprintf(stderr, "xmlHashCreate(0) failed\n");
+        return 1;
+    }
+    if (xmlHashSize(hash) != 0) {
+        fprintf(stderr, "empty hash size != 0\n");
+        err = 1;
+    }
+    xmlHashFree(hash, NULL);
+
+    /* xmlHashSize with NULL returns -1 */
+    if (xmlHashSize(NULL) != -1) {
+        fprintf(stderr, "xmlHashSize(NULL) != -1\n");
+        err = 1;
+    }
+
+    /* Add, lookup, update, remove with single key */
+    hash = xmlHashCreate(8);
+    if (hash == NULL) {
+        fprintf(stderr, "xmlHashCreate(8) failed\n");
+        return 1;
+    }
+
+    ret = xmlHashAdd(hash, BAD_CAST "key1", (void *) "val1");
+    if (ret != 1) {
+        fprintf(stderr, "xmlHashAdd key1 returned %d, expected 1\n", ret);
+        err = 1;
+    }
+
+    /* Duplicate add returns 0 */
+    ret = xmlHashAdd(hash, BAD_CAST "key1", (void *) "val_dup");
+    if (ret != 0) {
+        fprintf(stderr, "xmlHashAdd duplicate returned %d, expected 0\n", ret);
+        err = 1;
+    }
+
+    if (xmlHashSize(hash) != 1) {
+        fprintf(stderr, "hash size after add+dup != 1\n");
+        err = 1;
+    }
+
+    /* Lookup returns correct payload */
+    if (strcmp((const char *) xmlHashLookup(hash, BAD_CAST "key1"),
+              "val1") != 0) {
+        fprintf(stderr, "xmlHashLookup key1 returned wrong value\n");
+        err = 1;
+    }
+
+    /* Lookup missing key returns NULL */
+    if (xmlHashLookup(hash, BAD_CAST "nonexistent") != NULL) {
+        fprintf(stderr, "xmlHashLookup nonexistent != NULL\n");
+        err = 1;
+    }
+
+    /* Update replaces payload */
+    ret = xmlHashUpdateEntry(hash, BAD_CAST "key1", (void *) "val1_updated",
+                             NULL);
+    if (ret != 0) {
+        fprintf(stderr, "xmlHashUpdateEntry returned %d, expected 0\n", ret);
+        err = 1;
+    }
+    if (strcmp((const char *) xmlHashLookup(hash, BAD_CAST "key1"),
+              "val1_updated") != 0) {
+        fprintf(stderr, "xmlHashLookup after update returned wrong value\n");
+        err = 1;
+    }
+
+    /* Add a second entry */
+    ret = xmlHashAdd(hash, BAD_CAST "key2", (void *) "val2");
+    if (ret != 1) {
+        fprintf(stderr, "xmlHashAdd key2 returned %d, expected 1\n", ret);
+        err = 1;
+    }
+    if (xmlHashSize(hash) != 2) {
+        fprintf(stderr, "hash size after 2 adds != 2\n");
+        err = 1;
+    }
+
+    /* Remove entry */
+    ret = xmlHashRemoveEntry(hash, BAD_CAST "key1", NULL);
+    if (ret != 0) {
+        fprintf(stderr, "xmlHashRemoveEntry key1 returned %d, expected 0\n",
+                ret);
+        err = 1;
+    }
+    if (xmlHashSize(hash) != 1) {
+        fprintf(stderr, "hash size after remove != 1\n");
+        err = 1;
+    }
+    if (xmlHashLookup(hash, BAD_CAST "key1") != NULL) {
+        fprintf(stderr, "xmlHashLookup key1 after remove != NULL\n");
+        err = 1;
+    }
+
+    /* Remove nonexistent returns -1 */
+    ret = xmlHashRemoveEntry(hash, BAD_CAST "key1", NULL);
+    if (ret != -1) {
+        fprintf(stderr, "xmlHashRemoveEntry nonexistent returned %d\n", ret);
+        err = 1;
+    }
+
+    xmlHashFree(hash, NULL);
+    return err;
+}
+
+static int
+testHashTableMultiKey(void) {
+    xmlHashTablePtr hash;
+    int err = 0;
+    int ret;
+
+    hash = xmlHashCreate(8);
+    if (hash == NULL) {
+        fprintf(stderr, "xmlHashCreate failed\n");
+        return 1;
+    }
+
+    /* Two-key operations */
+    ret = xmlHashAdd2(hash, BAD_CAST "a", BAD_CAST "b", (void *) "ab");
+    if (ret != 1) {
+        fprintf(stderr, "xmlHashAdd2 returned %d, expected 1\n", ret);
+        err = 1;
+    }
+
+    if (xmlHashLookup2(hash, BAD_CAST "a", BAD_CAST "b") == NULL ||
+        strcmp(xmlHashLookup2(hash, BAD_CAST "a", BAD_CAST "b"), "ab") != 0) {
+        fprintf(stderr, "xmlHashLookup2 a,b failed\n");
+        err = 1;
+    }
+
+    /* Different key2 is a different entry */
+    ret = xmlHashAdd2(hash, BAD_CAST "a", BAD_CAST "c", (void *) "ac");
+    if (ret != 1) {
+        fprintf(stderr, "xmlHashAdd2 a,c returned %d, expected 1\n", ret);
+        err = 1;
+    }
+    if (xmlHashSize(hash) != 2) {
+        fprintf(stderr, "hash size with 2 two-key entries != 2\n");
+        err = 1;
+    }
+
+    /* Three-key operations */
+    ret = xmlHashAdd3(hash, BAD_CAST "x", BAD_CAST "y", BAD_CAST "z",
+                      (void *) "xyz");
+    if (ret != 1) {
+        fprintf(stderr, "xmlHashAdd3 returned %d, expected 1\n", ret);
+        err = 1;
+    }
+
+    if (xmlHashLookup3(hash, BAD_CAST "x", BAD_CAST "y",
+                       BAD_CAST "z") == NULL ||
+        strcmp(xmlHashLookup3(hash, BAD_CAST "x", BAD_CAST "y",
+                              BAD_CAST "z"), "xyz") != 0) {
+        fprintf(stderr, "xmlHashLookup3 x,y,z failed\n");
+        err = 1;
+    }
+
+    /* Lookup with wrong key3 returns NULL */
+    if (xmlHashLookup3(hash, BAD_CAST "x", BAD_CAST "y",
+                       BAD_CAST "w") != NULL) {
+        fprintf(stderr, "xmlHashLookup3 wrong key3 != NULL\n");
+        err = 1;
+    }
+
+    /* Remove two-key entry */
+    ret = xmlHashRemoveEntry2(hash, BAD_CAST "a", BAD_CAST "b", NULL);
+    if (ret != 0) {
+        fprintf(stderr, "xmlHashRemoveEntry2 returned %d, expected 0\n", ret);
+        err = 1;
+    }
+    if (xmlHashLookup2(hash, BAD_CAST "a", BAD_CAST "b") != NULL) {
+        fprintf(stderr, "xmlHashLookup2 a,b after remove != NULL\n");
+        err = 1;
+    }
+
+    /* Remove three-key entry */
+    ret = xmlHashRemoveEntry3(hash, BAD_CAST "x", BAD_CAST "y",
+                              BAD_CAST "z", NULL);
+    if (ret != 0) {
+        fprintf(stderr, "xmlHashRemoveEntry3 returned %d, expected 0\n", ret);
+        err = 1;
+    }
+
+    xmlHashFree(hash, NULL);
+    return err;
+}
+
+static int
+testHashTableScanAndCopy(void) {
+    xmlHashTablePtr hash;
+    xmlHashTablePtr copy;
+    int err = 0;
+    int count;
+
+    hash = xmlHashCreate(8);
+    if (hash == NULL) {
+        fprintf(stderr, "xmlHashCreate failed\n");
+        return 1;
+    }
+
+    xmlHashAdd(hash, BAD_CAST "alpha", (void *) "A");
+    xmlHashAdd(hash, BAD_CAST "beta", (void *) "B");
+    xmlHashAdd(hash, BAD_CAST "gamma", (void *) "C");
+
+    /* Scan counts all entries */
+    count = 0;
+    xmlHashScan(hash, hashScanCount, &count);
+    if (count != 3) {
+        fprintf(stderr, "xmlHashScan counted %d, expected 3\n", count);
+        err = 1;
+    }
+
+    /* Copy preserves entries */
+    copy = xmlHashCopySafe(hash, hashCopyPayload, NULL);
+    if (copy == NULL) {
+        fprintf(stderr, "xmlHashCopySafe returned NULL\n");
+        err = 1;
+    } else {
+        if (xmlHashSize(copy) != 3) {
+            fprintf(stderr, "copy size %d != 3\n", xmlHashSize(copy));
+            err = 1;
+        }
+        if (xmlHashLookup(copy, BAD_CAST "beta") == NULL ||
+            strcmp(xmlHashLookup(copy, BAD_CAST "beta"), "B") != 0) {
+            fprintf(stderr, "copy lookup beta failed\n");
+            err = 1;
+        }
+        xmlHashFree(copy, NULL);
+    }
+
+    /* xmlHashCopySafe with NULL hash returns NULL */
+    if (xmlHashCopySafe(NULL, hashCopyPayload, NULL) != NULL) {
+        fprintf(stderr, "xmlHashCopySafe(NULL) != NULL\n");
+        err = 1;
+    }
+
+    xmlHashFree(hash, NULL);
+    return err;
+}
+
+static int
+testHashTableStress(void) {
+    xmlHashTablePtr hash;
+    int err = 0;
+    int i;
+    char buf[32];
+
+    hash = xmlHashCreate(4);
+    if (hash == NULL) {
+        fprintf(stderr, "xmlHashCreate failed\n");
+        return 1;
+    }
+
+    /* Insert many entries to trigger table growth */
+    for (i = 0; i < 100; i++) {
+        snprintf(buf, sizeof(buf), "key_%d", i);
+        if (xmlHashAdd(hash, BAD_CAST buf, (void *) (size_t) (i + 1)) != 1) {
+            fprintf(stderr, "xmlHashAdd key_%d failed\n", i);
+            err = 1;
+            break;
+        }
+    }
+
+    if (xmlHashSize(hash) != 100) {
+        fprintf(stderr, "hash size after 100 inserts: %d\n",
+                xmlHashSize(hash));
+        err = 1;
+    }
+
+    /* Verify all entries are findable */
+    for (i = 0; i < 100; i++) {
+        snprintf(buf, sizeof(buf), "key_%d", i);
+        if (xmlHashLookup(hash, BAD_CAST buf) !=
+            (void *) (size_t) (i + 1)) {
+            fprintf(stderr, "xmlHashLookup key_%d wrong value\n", i);
+            err = 1;
+            break;
+        }
+    }
+
+    /* Remove half and verify */
+    for (i = 0; i < 100; i += 2) {
+        snprintf(buf, sizeof(buf), "key_%d", i);
+        if (xmlHashRemoveEntry(hash, BAD_CAST buf, NULL) != 0) {
+            fprintf(stderr, "xmlHashRemoveEntry key_%d failed\n", i);
+            err = 1;
+            break;
+        }
+    }
+
+    if (xmlHashSize(hash) != 50) {
+        fprintf(stderr, "hash size after removing 50: %d\n",
+                xmlHashSize(hash));
+        err = 1;
+    }
+
+    /* Verify remaining entries */
+    for (i = 1; i < 100; i += 2) {
+        snprintf(buf, sizeof(buf), "key_%d", i);
+        if (xmlHashLookup(hash, BAD_CAST buf) !=
+            (void *) (size_t) (i + 1)) {
+            fprintf(stderr, "xmlHashLookup key_%d wrong after removals\n", i);
+            err = 1;
+            break;
+        }
+    }
+
+    /* Verify removed entries return NULL */
+    for (i = 0; i < 100; i += 2) {
+        snprintf(buf, sizeof(buf), "key_%d", i);
+        if (xmlHashLookup(hash, BAD_CAST buf) != NULL) {
+            fprintf(stderr, "xmlHashLookup removed key_%d != NULL\n", i);
+            err = 1;
+            break;
+        }
+    }
+
+    xmlHashFree(hash, NULL);
+    return err;
+}
+
 int
 main(void) {
     int err = 0;
@@ -2124,6 +2467,10 @@ main(void) {
     err |= testXmlStringCompare();
     err |= testXmlStringConcat();
     err |= testXmlStringUTF8();
+    err |= testHashTableBasic();
+    err |= testHashTableMultiKey();
+    err |= testHashTableScanAndCopy();
+    err |= testHashTableStress();
 
     return err;
 }
