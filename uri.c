@@ -18,6 +18,7 @@
 #include <libxml/uri.h>
 #include <libxml/xmlerror.h>
 
+#include "private/buf.h"
 #include "private/error.h"
 #include "private/memory.h"
 
@@ -1710,8 +1711,9 @@ xmlURIEscapeStr(const xmlChar *str, const xmlChar *list) {
 xmlChar *
 xmlURIEscape(const xmlChar * str)
 {
-    xmlChar *ret, *segment = NULL;
+    xmlChar *segment = NULL;
     xmlURIPtr uri;
+    xmlBuf *buf;
     int ret2;
 
     if (str == NULL)
@@ -1733,18 +1735,22 @@ xmlURIEscape(const xmlChar * str)
     if (!uri)
         return NULL;
 
-    ret = NULL;
+    buf = xmlBufCreate(80);
+    if (buf == NULL) {
+        xmlFreeURI(uri);
+        return (NULL);
+    }
 
 #define NULLCHK(p) if(!p) { \
          xmlFreeURI(uri); \
-         xmlFree(ret); \
+         xmlBufFree(buf); \
          return NULL; } \
 
     if (uri->scheme) {
         segment = xmlURIEscapeStr(BAD_CAST uri->scheme, BAD_CAST "+-.");
         NULLCHK(segment)
-        ret = xmlStrcat(ret, segment);
-        ret = xmlStrcat(ret, BAD_CAST ":");
+        xmlBufCat(buf, segment);
+        xmlBufCat(buf, BAD_CAST ":");
         xmlFree(segment);
     }
 
@@ -1752,17 +1758,17 @@ xmlURIEscape(const xmlChar * str)
         segment =
             xmlURIEscapeStr(BAD_CAST uri->authority, BAD_CAST "/?;:@");
         NULLCHK(segment)
-        ret = xmlStrcat(ret, BAD_CAST "//");
-        ret = xmlStrcat(ret, segment);
+        xmlBufCat(buf, BAD_CAST "//");
+        xmlBufCat(buf, segment);
         xmlFree(segment);
     }
 
     if (uri->user) {
         segment = xmlURIEscapeStr(BAD_CAST uri->user, BAD_CAST ";:&=+$,");
         NULLCHK(segment)
-        ret = xmlStrcat(ret,BAD_CAST "//");
-        ret = xmlStrcat(ret, segment);
-        ret = xmlStrcat(ret, BAD_CAST "@");
+        xmlBufCat(buf, BAD_CAST "//");
+        xmlBufCat(buf, segment);
+        xmlBufCat(buf, BAD_CAST "@");
         xmlFree(segment);
     }
 
@@ -1770,8 +1776,8 @@ xmlURIEscape(const xmlChar * str)
         segment = xmlURIEscapeStr(BAD_CAST uri->server, BAD_CAST "/?;:@");
         NULLCHK(segment)
         if (uri->user == NULL)
-            ret = xmlStrcat(ret, BAD_CAST "//");
-        ret = xmlStrcat(ret, segment);
+            xmlBufCat(buf, BAD_CAST "//");
+        xmlBufCat(buf, segment);
         xmlFree(segment);
     }
 
@@ -1779,50 +1785,55 @@ xmlURIEscape(const xmlChar * str)
         xmlChar port[11];
 
         snprintf((char *) port, 11, "%d", uri->port);
-        ret = xmlStrcat(ret, BAD_CAST ":");
-        ret = xmlStrcat(ret, port);
+        xmlBufCat(buf, BAD_CAST ":");
+        xmlBufCat(buf, port);
     }
 
     if (uri->path) {
         segment =
             xmlURIEscapeStr(BAD_CAST uri->path, BAD_CAST ":@&=+$,/?;");
         NULLCHK(segment)
-        ret = xmlStrcat(ret, segment);
+        xmlBufCat(buf, segment);
         xmlFree(segment);
     }
 
     if (uri->query_raw) {
-        ret = xmlStrcat(ret, BAD_CAST "?");
-        ret = xmlStrcat(ret, BAD_CAST uri->query_raw);
+        xmlBufCat(buf, BAD_CAST "?");
+        xmlBufCat(buf, BAD_CAST uri->query_raw);
     }
     else if (uri->query) {
         segment =
             xmlURIEscapeStr(BAD_CAST uri->query, BAD_CAST ";/?:@&=+,$");
         NULLCHK(segment)
-        ret = xmlStrcat(ret, BAD_CAST "?");
-        ret = xmlStrcat(ret, segment);
+        xmlBufCat(buf, BAD_CAST "?");
+        xmlBufCat(buf, segment);
         xmlFree(segment);
     }
 
     if (uri->opaque) {
         segment = xmlURIEscapeStr(BAD_CAST uri->opaque, BAD_CAST "");
         NULLCHK(segment)
-        ret = xmlStrcat(ret, segment);
+        xmlBufCat(buf, segment);
         xmlFree(segment);
     }
 
     if (uri->fragment) {
         segment = xmlURIEscapeStr(BAD_CAST uri->fragment, BAD_CAST "#");
         NULLCHK(segment)
-        ret = xmlStrcat(ret, BAD_CAST "#");
-        ret = xmlStrcat(ret, segment);
+        xmlBufCat(buf, BAD_CAST "#");
+        xmlBufCat(buf, segment);
         xmlFree(segment);
     }
 
     xmlFreeURI(uri);
 #undef NULLCHK
 
-    return (ret);
+    if (xmlBufIsEmpty(buf)) {
+        xmlBufFree(buf);
+        return (NULL);
+    }
+
+    return (xmlBufDetach(buf));
 }
 
 /************************************************************************
