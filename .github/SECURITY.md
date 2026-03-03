@@ -28,6 +28,6 @@ To report a security vulnerability, please use GitHub's private security advisor
 
 - **Acknowledgement**: We will acknowledge receipt of your report within **48 hours**
 - **Assessment**: We will provide an initial assessment within **7 days**
-- **Fix**: We aim to release a fix within **90 days** of confirmed vulnerability
+- **Fix**: We aim to release a fix within **90 days** of a confirmed vulnerability
 
 We ask that you follow responsible disclosure practices and allow us reasonable time to address the issue before any public disclosure.
