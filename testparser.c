@@ -1593,6 +1593,167 @@ testRemoveParamEntityExtSubset(void) {
 }
 
 static int
+testNodePropertyOps(void) {
+    xmlDocPtr doc;
+    xmlNodePtr root, child;
+    xmlAttrPtr attr;
+    xmlChar *val;
+    int err = 0;
+
+    doc = xmlReadDoc(BAD_CAST "<root><child/></root>", NULL, NULL, 0);
+    if (doc == NULL) {
+        fprintf(stderr, "testNodePropertyOps: failed to parse doc\n");
+        return 1;
+    }
+    root = xmlDocGetRootElement(doc);
+    child = root->children;
+
+    /* xmlSetProp: add new attribute */
+    attr = xmlSetProp(root, BAD_CAST "id", BAD_CAST "123");
+    if (attr == NULL) {
+        fprintf(stderr, "testNodePropertyOps: xmlSetProp returned NULL\n");
+        xmlFreeDoc(doc);
+        return 1;
+    }
+
+    /* xmlGetProp: retrieve attribute value */
+    val = xmlGetProp(root, BAD_CAST "id");
+    if (val == NULL || strcmp((char *) val, "123") != 0) {
+        fprintf(stderr, "testNodePropertyOps: xmlGetProp failed\n");
+        err = 1;
+    }
+    xmlFree(val);
+
+    /* xmlHasProp: check attribute exists */
+    if (xmlHasProp(root, BAD_CAST "id") == NULL) {
+        fprintf(stderr, "testNodePropertyOps: xmlHasProp returned NULL\n");
+        err = 1;
+    }
+
+    /* xmlHasProp: nonexistent attribute returns NULL */
+    if (xmlHasProp(root, BAD_CAST "missing") != NULL) {
+        fprintf(stderr, "testNodePropertyOps: xmlHasProp found ghost attr\n");
+        err = 1;
+    }
+
+    /* xmlSetProp: update existing attribute */
+    xmlSetProp(root, BAD_CAST "id", BAD_CAST "456");
+    val = xmlGetProp(root, BAD_CAST "id");
+    if (val == NULL || strcmp((char *) val, "456") != 0) {
+        fprintf(stderr, "testNodePropertyOps: xmlSetProp update failed\n");
+        err = 1;
+    }
+    xmlFree(val);
+
+    /* xmlSetProp with NULL value clears content */
+    xmlSetProp(root, BAD_CAST "empty", NULL);
+    val = xmlGetProp(root, BAD_CAST "empty");
+    if (val == NULL || val[0] != 0) {
+        fprintf(stderr, "testNodePropertyOps: NULL value attr failed\n");
+        err = 1;
+    }
+    xmlFree(val);
+
+    /* xmlUnsetProp: remove attribute */
+    if (xmlUnsetProp(root, BAD_CAST "id") != 0) {
+        fprintf(stderr, "testNodePropertyOps: xmlUnsetProp failed\n");
+        err = 1;
+    }
+    if (xmlGetProp(root, BAD_CAST "id") != NULL) {
+        fprintf(stderr, "testNodePropertyOps: attr still present after unset\n");
+        err = 1;
+    }
+
+    /* xmlUnsetProp: removing nonexistent returns -1 */
+    if (xmlUnsetProp(root, BAD_CAST "noattr") != -1) {
+        fprintf(stderr, "testNodePropertyOps: xmlUnsetProp wrong return\n");
+        err = 1;
+    }
+
+    /* xmlNewProp: attach attribute directly */
+    attr = xmlNewProp(child, BAD_CAST "class", BAD_CAST "item");
+    if (attr == NULL) {
+        fprintf(stderr, "testNodePropertyOps: xmlNewProp returned NULL\n");
+        err = 1;
+    } else {
+        val = xmlGetProp(child, BAD_CAST "class");
+        if (val == NULL || strcmp((char *) val, "item") != 0) {
+            fprintf(stderr, "testNodePropertyOps: xmlNewProp value wrong\n");
+            err = 1;
+        }
+        xmlFree(val);
+    }
+
+    /* xmlRemoveProp: remove via attribute pointer */
+    attr = xmlHasProp(child, BAD_CAST "class");
+    if (attr != NULL) {
+        if (xmlRemoveProp(attr) != 0) {
+            fprintf(stderr, "testNodePropertyOps: xmlRemoveProp failed\n");
+            err = 1;
+        }
+        if (xmlHasProp(child, BAD_CAST "class") != NULL) {
+            fprintf(stderr, "testNodePropertyOps: attr after RemoveProp\n");
+            err = 1;
+        }
+    }
+
+    /* xmlRemoveProp: NULL returns -1 */
+    if (xmlRemoveProp(NULL) != -1) {
+        fprintf(stderr, "testNodePropertyOps: xmlRemoveProp(NULL) wrong\n");
+        err = 1;
+    }
+
+    /* xmlGetProp/xmlHasProp: NULL node or name returns NULL */
+    if (xmlGetProp(NULL, BAD_CAST "x") != NULL) {
+        fprintf(stderr, "testNodePropertyOps: xmlGetProp(NULL) not NULL\n");
+        err = 1;
+    }
+    if (xmlHasProp(NULL, BAD_CAST "x") != NULL) {
+        fprintf(stderr, "testNodePropertyOps: xmlHasProp(NULL) not NULL\n");
+        err = 1;
+    }
+    if (xmlHasProp(root, NULL) != NULL) {
+        fprintf(stderr, "testNodePropertyOps: xmlHasProp(,NULL) not NULL\n");
+        err = 1;
+    }
+
+    /* xmlSetProp: NULL node returns NULL */
+    if (xmlSetProp(NULL, BAD_CAST "x", BAD_CAST "y") != NULL) {
+        fprintf(stderr, "testNodePropertyOps: xmlSetProp(NULL) not NULL\n");
+        err = 1;
+    }
+
+    /* Multiple attributes on same node */
+    xmlSetProp(root, BAD_CAST "a", BAD_CAST "1");
+    xmlSetProp(root, BAD_CAST "b", BAD_CAST "2");
+    xmlSetProp(root, BAD_CAST "c", BAD_CAST "3");
+    val = xmlGetProp(root, BAD_CAST "b");
+    if (val == NULL || strcmp((char *) val, "2") != 0) {
+        fprintf(stderr, "testNodePropertyOps: multi-attr lookup failed\n");
+        err = 1;
+    }
+    xmlFree(val);
+
+    /* Unset middle attribute, others remain */
+    xmlUnsetProp(root, BAD_CAST "b");
+    val = xmlGetProp(root, BAD_CAST "a");
+    if (val == NULL || strcmp((char *) val, "1") != 0) {
+        fprintf(stderr, "testNodePropertyOps: attr 'a' lost after unset 'b'\n");
+        err = 1;
+    }
+    xmlFree(val);
+    val = xmlGetProp(root, BAD_CAST "c");
+    if (val == NULL || strcmp((char *) val, "3") != 0) {
+        fprintf(stderr, "testNodePropertyOps: attr 'c' lost after unset 'b'\n");
+        err = 1;
+    }
+    xmlFree(val);
+
+    xmlFreeDoc(doc);
+    return err;
+}
+
+static int
 testXmlStringBasic(void) {
     int err = 0;
     xmlChar *s;
@@ -2120,6 +2281,7 @@ main(void) {
     err |= testCharEncConvImpl();
     err |= testRemoveParamEntityIntSubset();
     err |= testRemoveParamEntityExtSubset();
+    err |= testNodePropertyOps();
     err |= testXmlStringBasic();
     err |= testXmlStringCompare();
     err |= testXmlStringConcat();
