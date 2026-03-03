@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: MIT */
+/* Copyright (C) 1998-2024 Daniel Veillard and the libxml2 contributors. */
 /*
  * Taken from https://github.com/swenson/sort
  * Revision: 05fd77bfec049ce8b7c408c4d3dd2d51ee061a15

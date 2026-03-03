@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: MIT */
+/* Copyright (C) 1998-2024 Daniel Veillard and the libxml2 contributors. */
 /*
  * dict.c: dictionary of reusable strings, just used to avoid allocation
  *         and freeing operations.

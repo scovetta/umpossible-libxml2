@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: MIT */
+/* Copyright (C) 1998-2024 Daniel Veillard and the libxml2 contributors. */
 /*
  * xlink.c : implementation of the hyperlinks detection module
  *           This version supports both XML XLinks and HTML simple links

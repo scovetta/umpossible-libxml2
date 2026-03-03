@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: MIT */
+/* Copyright (C) 1998-2024 Daniel Veillard and the libxml2 contributors. */
 /*
  * debugXML.c : This is a set of routines used for debugging the tree
  *              produced by the XML parser.

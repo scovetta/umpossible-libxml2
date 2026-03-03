@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: MIT */
+/* Copyright (C) 1998-2024 Daniel Veillard and the libxml2 contributors. */
 /*
  * parser.c : an XML 1.0 parser, namespaces and validity support are mostly
  *            implemented on top of the SAX interfaces

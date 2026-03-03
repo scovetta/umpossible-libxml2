@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: MIT */
+/* Copyright (C) 1998-2024 Daniel Veillard and the libxml2 contributors. */
 /*
  * testFuzzer.c: Test program for the custom entity loader used to fuzz
  * with multiple inputs.

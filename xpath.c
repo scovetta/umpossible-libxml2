@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: MIT */
+/* Copyright (C) 1998-2024 Daniel Veillard and the libxml2 contributors. */
 /*
  * xpath.c: XML Path Language implementation
  *          XPath is a language for addressing parts of an XML document,
