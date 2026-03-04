@@ -1,5 +1,14 @@
 NEWS file for libxml2
 
+v2.16.0: Feb 28 2026
+
+### Removals
+
+The Python bindings have been removed as planned.
+
+Support for Schematron validation has been removed as planned.
+
+
 v2.15.0: Sep 15 2025
 
 ### Major changes
