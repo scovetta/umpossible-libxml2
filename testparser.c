@@ -2057,6 +2057,367 @@ testXmlStringUTF8(void) {
     return err;
 }
 
+static int
+testCopyNode(void) {
+    xmlDocPtr doc;
+    xmlNodePtr root, child, text, copy;
+    xmlChar *content;
+    int err = 0;
+
+    doc = xmlReadMemory("<root a='1'><child>text</child></root>", 38,
+                        NULL, NULL, 0);
+    if (doc == NULL) {
+        fprintf(stderr, "testCopyNode: parse failed\n");
+        return 1;
+    }
+    root = xmlDocGetRootElement(doc);
+
+    /* extended=0: shallow copy (no properties, no children) */
+    copy = xmlCopyNode(root, 0);
+    if (copy == NULL) {
+        fprintf(stderr, "testCopyNode: shallow copy returned NULL\n");
+        err = 1;
+    } else {
+        if (copy->properties != NULL) {
+            fprintf(stderr, "testCopyNode: shallow copy has properties\n");
+            err = 1;
+        }
+        if (copy->children != NULL) {
+            fprintf(stderr, "testCopyNode: shallow copy has children\n");
+            err = 1;
+        }
+        if (xmlStrcmp(copy->name, BAD_CAST "root") != 0) {
+            fprintf(stderr, "testCopyNode: shallow copy name mismatch\n");
+            err = 1;
+        }
+        xmlFreeNode(copy);
+    }
+
+    /* extended=1: deep copy (properties + children) */
+    copy = xmlCopyNode(root, 1);
+    if (copy == NULL) {
+        fprintf(stderr, "testCopyNode: deep copy returned NULL\n");
+        err = 1;
+    } else {
+        if (copy->properties == NULL) {
+            fprintf(stderr, "testCopyNode: deep copy missing properties\n");
+            err = 1;
+        }
+        if (copy->children == NULL) {
+            fprintf(stderr, "testCopyNode: deep copy missing children\n");
+            err = 1;
+        } else {
+            content = xmlNodeGetContent(copy->children);
+            if (content == NULL || xmlStrcmp(content, BAD_CAST "text") != 0) {
+                fprintf(stderr, "testCopyNode: deep copy child content mismatch\n");
+                err = 1;
+            }
+            xmlFree(content);
+        }
+        xmlFreeNode(copy);
+    }
+
+    /* extended=2: shallow copy with properties and namespaces */
+    copy = xmlCopyNode(root, 2);
+    if (copy == NULL) {
+        fprintf(stderr, "testCopyNode: ext=2 copy returned NULL\n");
+        err = 1;
+    } else {
+        if (copy->properties == NULL) {
+            fprintf(stderr, "testCopyNode: ext=2 copy missing properties\n");
+            err = 1;
+        }
+        if (copy->children != NULL) {
+            fprintf(stderr, "testCopyNode: ext=2 copy should have no children\n");
+            err = 1;
+        }
+        xmlFreeNode(copy);
+    }
+
+    /* Copy text node */
+    child = root->children;
+    text = child->children;
+    copy = xmlCopyNode(text, 1);
+    if (copy == NULL) {
+        fprintf(stderr, "testCopyNode: text copy returned NULL\n");
+        err = 1;
+    } else {
+        if (copy->content == NULL ||
+            xmlStrcmp(copy->content, BAD_CAST "text") != 0) {
+            fprintf(stderr, "testCopyNode: text copy content mismatch\n");
+            err = 1;
+        }
+        xmlFreeNode(copy);
+    }
+
+    /* NULL input returns NULL */
+    copy = xmlCopyNode(NULL, 1);
+    if (copy != NULL) {
+        fprintf(stderr, "testCopyNode: NULL input should return NULL\n");
+        err = 1;
+        xmlFreeNode(copy);
+    }
+
+    xmlFreeDoc(doc);
+    return err;
+}
+
+static int
+testDocCopyNode(void) {
+    xmlDocPtr doc1, doc2;
+    xmlNodePtr root, copy;
+    int err = 0;
+
+    doc1 = xmlReadMemory("<a>hello</a>", 12, NULL, NULL, 0);
+    doc2 = xmlNewDoc(BAD_CAST "1.0");
+    if (doc1 == NULL || doc2 == NULL) {
+        fprintf(stderr, "testDocCopyNode: setup failed\n");
+        xmlFreeDoc(doc1);
+        xmlFreeDoc(doc2);
+        return 1;
+    }
+    root = xmlDocGetRootElement(doc1);
+
+    /* Copy node into a different document */
+    copy = xmlDocCopyNode(root, doc2, 1);
+    if (copy == NULL) {
+        fprintf(stderr, "testDocCopyNode: copy returned NULL\n");
+        err = 1;
+    } else {
+        if (copy->doc != doc2) {
+            fprintf(stderr, "testDocCopyNode: copy doc not set to target\n");
+            err = 1;
+        }
+        if (xmlStrcmp(copy->name, BAD_CAST "a") != 0) {
+            fprintf(stderr, "testDocCopyNode: copy name mismatch\n");
+            err = 1;
+        }
+        xmlFreeNode(copy);
+    }
+
+    xmlFreeDoc(doc1);
+    xmlFreeDoc(doc2);
+    return err;
+}
+
+static int
+testCopyDoc(void) {
+    xmlDocPtr doc, copy;
+    xmlNodePtr copyRoot;
+    xmlChar *content;
+    int err = 0;
+
+    doc = xmlReadMemory("<root><a>1</a><b>2</b></root>", 29, "test.xml",
+                        "UTF-8", 0);
+    if (doc == NULL) {
+        fprintf(stderr, "testCopyDoc: parse failed\n");
+        return 1;
+    }
+
+    /* Non-recursive copy: metadata only */
+    copy = xmlCopyDoc(doc, 0);
+    if (copy == NULL) {
+        fprintf(stderr, "testCopyDoc: non-recursive copy returned NULL\n");
+        err = 1;
+    } else {
+        if (copy->children != NULL) {
+            fprintf(stderr, "testCopyDoc: non-recursive copy has children\n");
+            err = 1;
+        }
+        if (copy->encoding == NULL ||
+            xmlStrcmp(copy->encoding, BAD_CAST "UTF-8") != 0) {
+            fprintf(stderr, "testCopyDoc: encoding not copied\n");
+            err = 1;
+        }
+        xmlFreeDoc(copy);
+    }
+
+    /* Recursive copy: full document tree */
+    copy = xmlCopyDoc(doc, 1);
+    if (copy == NULL) {
+        fprintf(stderr, "testCopyDoc: recursive copy returned NULL\n");
+        err = 1;
+    } else {
+        copyRoot = xmlDocGetRootElement(copy);
+        if (copyRoot == NULL) {
+            fprintf(stderr, "testCopyDoc: recursive copy has no root\n");
+            err = 1;
+        } else {
+            if (xmlStrcmp(copyRoot->name, BAD_CAST "root") != 0) {
+                fprintf(stderr, "testCopyDoc: root name mismatch\n");
+                err = 1;
+            }
+            /* Verify children were copied */
+            if (copyRoot->children == NULL) {
+                fprintf(stderr, "testCopyDoc: root children missing\n");
+                err = 1;
+            } else {
+                content = xmlNodeGetContent(copyRoot->children);
+                if (content == NULL ||
+                    xmlStrcmp(content, BAD_CAST "1") != 0) {
+                    fprintf(stderr, "testCopyDoc: first child content mismatch\n");
+                    err = 1;
+                }
+                xmlFree(content);
+            }
+        }
+        /* Verify copy is independent */
+        if (copy == doc) {
+            fprintf(stderr, "testCopyDoc: copy is same pointer as original\n");
+            err = 1;
+        }
+        xmlFreeDoc(copy);
+    }
+
+    /* NULL input returns NULL */
+    copy = xmlCopyDoc(NULL, 1);
+    if (copy != NULL) {
+        fprintf(stderr, "testCopyDoc: NULL input should return NULL\n");
+        err = 1;
+        xmlFreeDoc(copy);
+    }
+
+    xmlFreeDoc(doc);
+    return err;
+}
+
+static int
+testNodeSetContent(void) {
+    xmlDocPtr doc;
+    xmlNodePtr root, text;
+    xmlChar *content;
+    int err = 0;
+    int ret;
+
+    doc = xmlReadMemory("<root>old</root>", 16, NULL, NULL, 0);
+    if (doc == NULL) {
+        fprintf(stderr, "testNodeSetContent: parse failed\n");
+        return 1;
+    }
+    root = xmlDocGetRootElement(doc);
+
+    /* Set content on element node (replaces children) */
+    ret = xmlNodeSetContent(root, BAD_CAST "new");
+    if (ret != 0) {
+        fprintf(stderr, "testNodeSetContent: set on element returned %d\n", ret);
+        err = 1;
+    }
+    content = xmlNodeGetContent(root);
+    if (content == NULL || xmlStrcmp(content, BAD_CAST "new") != 0) {
+        fprintf(stderr, "testNodeSetContent: element content mismatch\n");
+        err = 1;
+    }
+    xmlFree(content);
+
+    /* Set content to NULL clears children */
+    ret = xmlNodeSetContent(root, NULL);
+    if (ret != 0) {
+        fprintf(stderr, "testNodeSetContent: set NULL returned %d\n", ret);
+        err = 1;
+    }
+    content = xmlNodeGetContent(root);
+    if (content != NULL && content[0] != '\0') {
+        fprintf(stderr, "testNodeSetContent: content not cleared\n");
+        err = 1;
+    }
+    xmlFree(content);
+
+    /* Set content on text node */
+    xmlNodeSetContent(root, BAD_CAST "temp");
+    text = root->children;
+    if (text != NULL && text->type == XML_TEXT_NODE) {
+        ret = xmlNodeSetContent(text, BAD_CAST "replaced");
+        if (ret != 0) {
+            fprintf(stderr, "testNodeSetContent: set on text returned %d\n", ret);
+            err = 1;
+        }
+        content = xmlNodeGetContent(text);
+        if (content == NULL ||
+            xmlStrcmp(content, BAD_CAST "replaced") != 0) {
+            fprintf(stderr, "testNodeSetContent: text content mismatch\n");
+            err = 1;
+        }
+        xmlFree(content);
+    }
+
+    /* NULL node returns error */
+    ret = xmlNodeSetContent(NULL, BAD_CAST "fail");
+    if (ret != 1) {
+        fprintf(stderr, "testNodeSetContent: NULL node should return 1\n");
+        err = 1;
+    }
+
+    xmlFreeDoc(doc);
+    return err;
+}
+
+static int
+testNodeAddContent(void) {
+    xmlDocPtr doc;
+    xmlNodePtr root, text;
+    xmlChar *content;
+    int err = 0;
+    int ret;
+
+    doc = xmlReadMemory("<root>hello</root>", 18, NULL, NULL, 0);
+    if (doc == NULL) {
+        fprintf(stderr, "testNodeAddContent: parse failed\n");
+        return 1;
+    }
+    root = xmlDocGetRootElement(doc);
+
+    /* Append content to element node (adds text child) */
+    ret = xmlNodeAddContent(root, BAD_CAST " world");
+    if (ret != 0) {
+        fprintf(stderr, "testNodeAddContent: append to element returned %d\n",
+                ret);
+        err = 1;
+    }
+    content = xmlNodeGetContent(root);
+    if (content == NULL ||
+        xmlStrcmp(content, BAD_CAST "hello world") != 0) {
+        fprintf(stderr, "testNodeAddContent: element content mismatch: '%s'\n",
+                content ? (char *)content : "(null)");
+        err = 1;
+    }
+    xmlFree(content);
+
+    /* Append content to text node directly */
+    text = root->children;
+    if (text != NULL && text->type == XML_TEXT_NODE) {
+        ret = xmlNodeAddContent(text, BAD_CAST "!");
+        if (ret != 0) {
+            fprintf(stderr, "testNodeAddContent: append to text returned %d\n",
+                    ret);
+            err = 1;
+        }
+        content = xmlNodeGetContent(text);
+        if (content == NULL ||
+            xmlStrcmp(content, BAD_CAST "hello world!") != 0) {
+            fprintf(stderr, "testNodeAddContent: text content mismatch\n");
+            err = 1;
+        }
+        xmlFree(content);
+    }
+
+    /* NULL node returns error */
+    ret = xmlNodeAddContent(NULL, BAD_CAST "fail");
+    if (ret != 1) {
+        fprintf(stderr, "testNodeAddContent: NULL node should return 1\n");
+        err = 1;
+    }
+
+    /* NULL content is a no-op, returns success */
+    ret = xmlNodeAddContent(root, NULL);
+    if (ret != 0) {
+        fprintf(stderr, "testNodeAddContent: NULL content should return 0\n");
+        err = 1;
+    }
+
+    xmlFreeDoc(doc);
+    return err;
+}
+
 int
 main(void) {
     int err = 0;
@@ -2124,6 +2485,11 @@ main(void) {
     err |= testXmlStringCompare();
     err |= testXmlStringConcat();
     err |= testXmlStringUTF8();
+    err |= testCopyNode();
+    err |= testDocCopyNode();
+    err |= testCopyDoc();
+    err |= testNodeSetContent();
+    err |= testNodeAddContent();
 
     return err;
 }
