@@ -10,12 +10,15 @@
 #include <libxml/parser.h>
 #include <libxml/parserInternals.h>
 #include <libxml/uri.h>
+#include <libxml/valid.h>
 #include <libxml/xmlreader.h>
 #include <libxml/xmlsave.h>
+#include <libxml/xmlstring.h>
 #include <libxml/xmlwriter.h>
 #include <libxml/HTMLparser.h>
 #include <libxml/HTMLtree.h>
 
+#include <stdarg.h>
 #include <string.h>
 
 #ifdef LIBXML_SAX1_ENABLED
@@ -2057,6 +2060,535 @@ testXmlStringUTF8(void) {
     return err;
 }
 
+static int
+testTreeNodeCopy(void) {
+    xmlDocPtr doc, doc2;
+    xmlNodePtr root, child, copy, list_copy;
+    int err = 0;
+
+    doc = xmlNewDoc(BAD_CAST "1.0");
+    root = xmlNewDocNode(doc, NULL, BAD_CAST "root", NULL);
+    xmlDocSetRootElement(doc, root);
+    child = xmlNewChild(root, NULL, BAD_CAST "child", BAD_CAST "text");
+    if (child == NULL) {
+        fprintf(stderr, "xmlNewChild failed\n");
+        xmlFreeDoc(doc);
+        return 1;
+    }
+
+    /* xmlCopyNode: shallow copy (recursive=0) */
+    copy = xmlCopyNode(child, 0);
+    if (copy == NULL) {
+        fprintf(stderr, "xmlCopyNode(shallow) failed\n");
+        err = 1;
+    } else {
+        if (copy->children != NULL) {
+            fprintf(stderr, "xmlCopyNode shallow should have no children\n");
+            err = 1;
+        }
+        xmlFreeNode(copy);
+    }
+
+    /* xmlCopyNode: recursive copy */
+    copy = xmlCopyNode(root, 1);
+    if (copy == NULL) {
+        fprintf(stderr, "xmlCopyNode(recursive) failed\n");
+        err = 1;
+    } else {
+        if (copy->children == NULL) {
+            fprintf(stderr, "xmlCopyNode recursive should have children\n");
+            err = 1;
+        }
+        xmlFreeNode(copy);
+    }
+
+    /* xmlDocCopyNode: copy node into a different doc */
+    doc2 = xmlNewDoc(BAD_CAST "1.0");
+    copy = xmlDocCopyNode(child, doc2, 1);
+    if (copy == NULL) {
+        fprintf(stderr, "xmlDocCopyNode failed\n");
+        err = 1;
+    } else {
+        if (copy->doc != doc2) {
+            fprintf(stderr, "xmlDocCopyNode: node not in target doc\n");
+            err = 1;
+        }
+        xmlFreeNode(copy);
+    }
+    xmlFreeDoc(doc2);
+
+    /* xmlCopyNodeList: copy a list of siblings */
+    list_copy = xmlCopyNodeList(child);
+    if (list_copy == NULL) {
+        fprintf(stderr, "xmlCopyNodeList failed\n");
+        err = 1;
+    } else {
+        xmlFreeNodeList(list_copy);
+    }
+
+    /* xmlCopyDoc */
+    doc2 = xmlCopyDoc(doc, 1);
+    if (doc2 == NULL) {
+        fprintf(stderr, "xmlCopyDoc failed\n");
+        err = 1;
+    } else {
+        if (xmlDocGetRootElement(doc2) == NULL) {
+            fprintf(stderr, "xmlCopyDoc: copied doc has no root\n");
+            err = 1;
+        }
+        xmlFreeDoc(doc2);
+    }
+
+    xmlFreeDoc(doc);
+    return err;
+}
+
+static int
+testTreeNodeManipulate(void) {
+    xmlDocPtr doc;
+    xmlNodePtr root, a, b, c, ret;
+    int err = 0;
+
+    doc = xmlNewDoc(BAD_CAST "1.0");
+    root = xmlNewDocNode(doc, NULL, BAD_CAST "root", NULL);
+    xmlDocSetRootElement(doc, root);
+
+    /* xmlNewChild */
+    a = xmlNewChild(root, NULL, BAD_CAST "a", NULL);
+    b = xmlNewChild(root, NULL, BAD_CAST "b", NULL);
+    if (a == NULL || b == NULL) {
+        fprintf(stderr, "xmlNewChild failed\n");
+        xmlFreeDoc(doc);
+        return 1;
+    }
+
+    /* xmlNodeSetContent / xmlNodeAddContent */
+    xmlNodeSetContent(a, BAD_CAST "hello");
+    {
+        xmlChar *content = xmlNodeGetContent(a);
+        if (!xmlStrEqual(content, BAD_CAST "hello")) {
+            fprintf(stderr, "xmlNodeSetContent failed\n");
+            err = 1;
+        }
+        xmlFree(content);
+    }
+    xmlNodeAddContent(a, BAD_CAST " world");
+    {
+        xmlChar *content = xmlNodeGetContent(a);
+        if (!xmlStrEqual(content, BAD_CAST "hello world")) {
+            fprintf(stderr, "xmlNodeAddContent failed: got '%s'\n", content);
+            err = 1;
+        }
+        xmlFree(content);
+    }
+
+    /* xmlAddNextSibling: insert c after a */
+    c = xmlNewNode(NULL, BAD_CAST "c");
+    ret = xmlAddNextSibling(a, c);
+    if (ret == NULL || a->next != c) {
+        fprintf(stderr, "xmlAddNextSibling failed\n");
+        err = 1;
+    }
+
+    /* xmlAddPrevSibling: insert a new node before b */
+    {
+        xmlNodePtr d = xmlNewNode(NULL, BAD_CAST "d");
+        ret = xmlAddPrevSibling(b, d);
+        if (ret == NULL || b->prev != d) {
+            fprintf(stderr, "xmlAddPrevSibling failed\n");
+            err = 1;
+        }
+    }
+
+    /* xmlAddSibling: appends as last sibling */
+    {
+        xmlNodePtr e = xmlNewNode(NULL, BAD_CAST "e");
+        ret = xmlAddSibling(a, e);
+        if (ret == NULL) {
+            fprintf(stderr, "xmlAddSibling failed\n");
+            err = 1;
+        }
+    }
+
+    /* xmlReplaceNode: replace a with a new node */
+    {
+        xmlNodePtr repl = xmlNewNode(NULL, BAD_CAST "replaced");
+        xmlNodePtr old = xmlReplaceNode(a, repl);
+        if (old != a || repl->parent != root) {
+            fprintf(stderr, "xmlReplaceNode failed\n");
+            err = 1;
+        }
+        xmlFreeNode(old);
+    }
+
+    xmlFreeDoc(doc);
+    return err;
+}
+
+static int
+testTreeNsProp(void) {
+    xmlDocPtr doc;
+    xmlNodePtr root;
+    xmlNsPtr ns;
+    xmlAttrPtr attr;
+    xmlChar *val;
+    int err = 0;
+
+    doc = xmlNewDoc(BAD_CAST "1.0");
+    root = xmlNewDocNode(doc, NULL, BAD_CAST "root", NULL);
+    xmlDocSetRootElement(doc, root);
+    ns = xmlNewNs(root, BAD_CAST "http://example.com/ns", BAD_CAST "ex");
+
+    /* xmlSetNsProp */
+    attr = xmlSetNsProp(root, ns, BAD_CAST "key", BAD_CAST "value");
+    if (attr == NULL) {
+        fprintf(stderr, "xmlSetNsProp failed\n");
+        err = 1;
+    }
+
+    /* xmlHasNsProp */
+    if (xmlHasNsProp(root, BAD_CAST "key",
+                     BAD_CAST "http://example.com/ns") == NULL) {
+        fprintf(stderr, "xmlHasNsProp failed\n");
+        err = 1;
+    }
+    if (xmlHasNsProp(root, BAD_CAST "missing",
+                     BAD_CAST "http://example.com/ns") != NULL) {
+        fprintf(stderr, "xmlHasNsProp found non-existent prop\n");
+        err = 1;
+    }
+
+    /* xmlGetNsProp */
+    val = xmlGetNsProp(root, BAD_CAST "key", BAD_CAST "http://example.com/ns");
+    if (val == NULL || !xmlStrEqual(val, BAD_CAST "value")) {
+        fprintf(stderr, "xmlGetNsProp failed: got '%s'\n",
+                val ? (char *) val : "(null)");
+        err = 1;
+    }
+    xmlFree(val);
+
+    /* update the value */
+    xmlSetNsProp(root, ns, BAD_CAST "key", BAD_CAST "updated");
+    val = xmlGetNsProp(root, BAD_CAST "key", BAD_CAST "http://example.com/ns");
+    if (val == NULL || !xmlStrEqual(val, BAD_CAST "updated")) {
+        fprintf(stderr, "xmlSetNsProp update failed: got '%s'\n",
+                val ? (char *) val : "(null)");
+        err = 1;
+    }
+    xmlFree(val);
+
+    xmlFreeDoc(doc);
+    return err;
+}
+
+static int
+testParseURISafe(void) {
+    xmlURIPtr uri = NULL;
+    xmlChar *built = NULL;
+    int rc;
+    int err = 0;
+
+    /* xmlParseURISafe: valid URI */
+    rc = xmlParseURISafe("http://example.org/path?q=1#frag", &uri);
+    if (rc != 0 || uri == NULL) {
+        fprintf(stderr, "xmlParseURISafe valid failed: rc=%d\n", rc);
+        err = 1;
+    } else {
+        if (uri->scheme == NULL || strcmp(uri->scheme, "http") != 0) {
+            fprintf(stderr, "xmlParseURISafe: wrong scheme '%s'\n",
+                    uri->scheme);
+            err = 1;
+        }
+        if (uri->server == NULL || strcmp(uri->server, "example.org") != 0) {
+            fprintf(stderr, "xmlParseURISafe: wrong server '%s'\n",
+                    uri->server);
+            err = 1;
+        }
+    }
+    xmlFreeURI(uri);
+    uri = NULL;
+
+    /* xmlParseURISafe: NULL input */
+    rc = xmlParseURISafe(NULL, &uri);
+    if (rc == 0 && uri != NULL) {
+        fprintf(stderr, "xmlParseURISafe(NULL) should not return a URI\n");
+        err = 1;
+    }
+    xmlFreeURI(uri);
+    uri = NULL;
+
+    /* xmlBuildURISafe: resolve relative against base */
+    rc = xmlBuildURISafe(BAD_CAST "b/c", BAD_CAST "http://example.org/a/",
+                         &built);
+    if (rc != 0 || built == NULL) {
+        fprintf(stderr, "xmlBuildURISafe failed: rc=%d\n", rc);
+        err = 1;
+    } else {
+        if (!xmlStrEqual(built, BAD_CAST "http://example.org/a/b/c")) {
+            fprintf(stderr, "xmlBuildURISafe wrong result: '%s'\n", built);
+            err = 1;
+        }
+    }
+    xmlFree(built);
+    built = NULL;
+
+    /* xmlBuildURISafe: absolute URI stays unchanged */
+    rc = xmlBuildURISafe(BAD_CAST "http://other.org/x",
+                         BAD_CAST "http://example.org/a/", &built);
+    if (rc != 0 || built == NULL) {
+        fprintf(stderr, "xmlBuildURISafe absolute failed: rc=%d\n", rc);
+        err = 1;
+    } else {
+        if (!xmlStrEqual(built, BAD_CAST "http://other.org/x")) {
+            fprintf(stderr, "xmlBuildURISafe absolute wrong: '%s'\n", built);
+            err = 1;
+        }
+    }
+    xmlFree(built);
+
+    return err;
+}
+
+static int
+testURIUtils(void) {
+    xmlChar *res;
+    char *cres;
+    int err = 0;
+
+    /* xmlURIEscapeStr */
+    res = xmlURIEscapeStr(BAD_CAST "hello world", BAD_CAST "");
+    if (res == NULL || !xmlStrEqual(res, BAD_CAST "hello%20world")) {
+        fprintf(stderr, "xmlURIEscapeStr failed: '%s'\n", res);
+        err = 1;
+    }
+    xmlFree(res);
+
+    /* xmlURIEscape: valid URI with no spaces passes through */
+    res = xmlURIEscape(BAD_CAST "http://example.org/path/file.xml");
+    if (res == NULL) {
+        fprintf(stderr, "xmlURIEscape failed\n");
+        err = 1;
+    } else {
+        if (!xmlStrEqual(res, BAD_CAST "http://example.org/path/file.xml")) {
+            fprintf(stderr, "xmlURIEscape: unexpected result: '%s'\n", res);
+            err = 1;
+        }
+    }
+    xmlFree(res);
+
+    /* xmlURIUnescapeString */
+    cres = xmlURIUnescapeString("hello%20world", -1, NULL);
+    if (cres == NULL || strcmp(cres, "hello world") != 0) {
+        fprintf(stderr, "xmlURIUnescapeString failed: '%s'\n", cres);
+        err = 1;
+    }
+    xmlFree(cres);
+
+    /* xmlNormalizeURIPath: removes . and .. segments */
+    {
+        char path[] = "/a/b/../c/./d";
+        if (xmlNormalizeURIPath(path) != 0) {
+            fprintf(stderr, "xmlNormalizeURIPath returned error\n");
+            err = 1;
+        } else if (strcmp(path, "/a/c/d") != 0) {
+            fprintf(stderr, "xmlNormalizeURIPath wrong result: '%s'\n", path);
+            err = 1;
+        }
+    }
+
+    /* xmlCanonicPath: already canonical path */
+    res = xmlCanonicPath(BAD_CAST "/tmp/test.xml");
+    if (res == NULL) {
+        fprintf(stderr, "xmlCanonicPath failed\n");
+        err = 1;
+    }
+    xmlFree(res);
+
+    return err;
+}
+
+#ifdef LIBXML_VALID_ENABLED
+static int
+testValidation(void) {
+    xmlValidCtxtPtr ctxt;
+    xmlDocPtr doc;
+    xmlNodePtr root;
+    int err = 0;
+
+    /* xmlNewValidCtxt / xmlFreeValidCtxt lifecycle */
+    ctxt = xmlNewValidCtxt();
+    if (ctxt == NULL) {
+        fprintf(stderr, "xmlNewValidCtxt failed\n");
+        return 1;
+    }
+    xmlFreeValidCtxt(ctxt);
+
+    /* xmlValidateDocument / xmlValidateElement with inline DTD */
+    {
+        const char *xml =
+            "<?xml version=\"1.0\"?>\n"
+            "<!DOCTYPE root [\n"
+            "<!ELEMENT root (child*)>\n"
+            "<!ELEMENT child EMPTY>\n"
+            "]>\n"
+            "<root><child/></root>\n";
+
+        doc = xmlReadMemory(xml, (int) strlen(xml), "test.xml", NULL, 0);
+        if (doc == NULL) {
+            fprintf(stderr, "testValidation: parse failed\n");
+            return 1;
+        }
+        ctxt = xmlNewValidCtxt();
+        if (xmlValidateDocument(ctxt, doc) != 1) {
+            fprintf(stderr, "xmlValidateDocument with DTD failed\n");
+            err = 1;
+        }
+        root = xmlDocGetRootElement(doc);
+        if (xmlValidateElement(ctxt, doc, root) != 1) {
+            fprintf(stderr, "xmlValidateElement with DTD failed\n");
+            err = 1;
+        }
+        xmlFreeValidCtxt(ctxt);
+        xmlFreeDoc(doc);
+    }
+
+    /* xmlAddIDSafe / xmlGetID / xmlIsID / xmlRemoveID with ID attribute */
+    {
+        const char *xml =
+            "<?xml version=\"1.0\"?>\n"
+            "<!DOCTYPE root [\n"
+            "<!ELEMENT root EMPTY>\n"
+            "<!ATTLIST root id ID #IMPLIED>\n"
+            "]>\n"
+            "<root id=\"myid\"/>\n";
+        xmlAttrPtr attr;
+
+        doc = xmlReadMemory(xml, (int) strlen(xml), "test.xml", NULL, 0);
+        if (doc == NULL) {
+            fprintf(stderr, "testValidation ID: parse failed\n");
+            return 1;
+        }
+        root = xmlDocGetRootElement(doc);
+        attr = root->properties;
+
+        /* xmlIsID: attribute declared as ID in DTD */
+        if (xmlIsID(doc, root, attr) != 1) {
+            fprintf(stderr, "xmlIsID failed\n");
+            err = 1;
+        }
+
+        /* xmlGetID: should find the attribute by value */
+        {
+            xmlAttrPtr found = xmlGetID(doc, BAD_CAST "myid");
+            if (found != attr) {
+                fprintf(stderr, "xmlGetID failed\n");
+                err = 1;
+            }
+        }
+
+        /* xmlAddIDSafe: adding a duplicate ID should fail (returns 0) */
+        if (xmlAddIDSafe(attr, BAD_CAST "myid") != 0) {
+            fprintf(stderr, "xmlAddIDSafe duplicate should return 0\n");
+            err = 1;
+        }
+
+        /* xmlRemoveID */
+        if (xmlRemoveID(doc, attr) != 0) {
+            fprintf(stderr, "xmlRemoveID failed\n");
+            err = 1;
+        }
+        /* After removal, xmlGetID should return NULL */
+        if (xmlGetID(doc, BAD_CAST "myid") != NULL) {
+            fprintf(stderr, "xmlGetID after remove should return NULL\n");
+            err = 1;
+        }
+
+        xmlFreeDoc(doc);
+    }
+
+    return err;
+}
+#endif /* LIBXML_VALID_ENABLED */
+
+static int
+callXmlStrVPrintf(xmlChar *buf, int len, const char *fmt, ...) {
+    va_list ap;
+    int ret;
+    va_start(ap, fmt);
+    ret = xmlStrVPrintf(buf, len, fmt, ap);
+    va_end(ap);
+    return ret;
+}
+
+static int
+testXmlStrVPrintf(void) {
+    xmlChar buf[64];
+    int err = 0;
+
+    if (callXmlStrVPrintf(buf, sizeof(buf), "hello %s %d", "world", 42) < 0) {
+        fprintf(stderr, "xmlStrVPrintf failed\n");
+        err = 1;
+    } else if (!xmlStrEqual(buf, BAD_CAST "hello world 42")) {
+        fprintf(stderr, "xmlStrVPrintf wrong result: '%s'\n", buf);
+        err = 1;
+    }
+
+    return err;
+}
+
+static int
+testXmlUTF8Strsub(void) {
+    /* "café" in UTF-8: c=0x63 a=0x61 f=0x66 é=0xC3 0xA9 */
+    static const xmlChar utf8_cafe[] = { 0x63, 0x61, 0x66, 0xC3, 0xA9, 0 };
+    xmlChar *sub;
+    int err = 0;
+
+    /* NULL input */
+    if (xmlUTF8Strsub(NULL, 0, 1) != NULL) {
+        fprintf(stderr, "xmlUTF8Strsub(NULL) should return NULL\n");
+        err = 1;
+    }
+
+    /* start beyond end of string */
+    if (xmlUTF8Strsub(utf8_cafe, 10, 1) != NULL) {
+        fprintf(stderr, "xmlUTF8Strsub past end should return NULL\n");
+        err = 1;
+    }
+
+    /* extract "af" (chars 1..2) */
+    sub = xmlUTF8Strsub(utf8_cafe, 1, 2);
+    if (sub == NULL || !xmlStrEqual(sub, BAD_CAST "af")) {
+        fprintf(stderr, "xmlUTF8Strsub 'af' failed: '%s'\n", sub);
+        err = 1;
+    }
+    xmlFree(sub);
+
+    /* extract "é" (char 3, 1 char) — multi-byte */
+    sub = xmlUTF8Strsub(utf8_cafe, 3, 1);
+    if (sub == NULL) {
+        fprintf(stderr, "xmlUTF8Strsub multi-byte failed\n");
+        err = 1;
+    } else {
+        static const xmlChar e_accent[] = { 0xC3, 0xA9, 0 };
+        if (!xmlStrEqual(sub, e_accent)) {
+            fprintf(stderr, "xmlUTF8Strsub multi-byte wrong: got '%s'\n",
+                    sub);
+            err = 1;
+        }
+        xmlFree(sub);
+    }
+
+    /* zero length */
+    sub = xmlUTF8Strsub(utf8_cafe, 0, 0);
+    if (sub == NULL || sub[0] != '\0') {
+        fprintf(stderr, "xmlUTF8Strsub zero length failed\n");
+        err = 1;
+    }
+    xmlFree(sub);
+
+    return err;
+}
+
 int
 main(void) {
     int err = 0;
@@ -2124,6 +2656,16 @@ main(void) {
     err |= testXmlStringCompare();
     err |= testXmlStringConcat();
     err |= testXmlStringUTF8();
+    err |= testTreeNodeCopy();
+    err |= testTreeNodeManipulate();
+    err |= testTreeNsProp();
+    err |= testParseURISafe();
+    err |= testURIUtils();
+#ifdef LIBXML_VALID_ENABLED
+    err |= testValidation();
+#endif
+    err |= testXmlStrVPrintf();
+    err |= testXmlUTF8Strsub();
 
     return err;
 }
