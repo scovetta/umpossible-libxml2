@@ -2057,6 +2057,355 @@ testXmlStringUTF8(void) {
     return err;
 }
 
+static int
+testNewChild(void) {
+    xmlDocPtr doc;
+    xmlNodePtr root, child1, child2, child3;
+    int err = 0;
+
+    doc = xmlNewDoc(BAD_CAST "1.0");
+    root = xmlNewDocNode(doc, NULL, BAD_CAST "root", NULL);
+    xmlDocSetRootElement(doc, root);
+
+    /* Basic xmlNewChild */
+    child1 = xmlNewChild(root, NULL, BAD_CAST "a", BAD_CAST "text1");
+    if (child1 == NULL || child1->parent != root) {
+        fprintf(stderr, "testNewChild: first child failed\n");
+        err = 1;
+    }
+    if (root->children != child1 || root->last != child1) {
+        fprintf(stderr, "testNewChild: parent pointers wrong after first\n");
+        err = 1;
+    }
+
+    /* Second child appends */
+    child2 = xmlNewChild(root, NULL, BAD_CAST "b", NULL);
+    if (child2 == NULL || root->last != child2) {
+        fprintf(stderr, "testNewChild: second child not last\n");
+        err = 1;
+    }
+    if (child1->next != child2 || child2->prev != child1) {
+        fprintf(stderr, "testNewChild: sibling links wrong\n");
+        err = 1;
+    }
+
+    /* Content verification */
+    {
+        xmlChar *content = xmlNodeGetContent(child1);
+        if (content == NULL || xmlStrcmp(content, BAD_CAST "text1") != 0) {
+            fprintf(stderr, "testNewChild: content mismatch\n");
+            err = 1;
+        }
+        xmlFree(content);
+    }
+
+    /* Third child with no content */
+    child3 = xmlNewChild(root, NULL, BAD_CAST "c", NULL);
+    if (child3 == NULL || child3->children != NULL) {
+        fprintf(stderr, "testNewChild: empty child has children\n");
+        err = 1;
+    }
+    if (root->last != child3) {
+        fprintf(stderr, "testNewChild: third child not last\n");
+        err = 1;
+    }
+
+    /* NULL parent or name returns NULL */
+    if (xmlNewChild(NULL, NULL, BAD_CAST "x", NULL) != NULL) {
+        fprintf(stderr, "testNewChild: NULL parent should return NULL\n");
+        err = 1;
+    }
+    if (xmlNewChild(root, NULL, NULL, NULL) != NULL) {
+        fprintf(stderr, "testNewChild: NULL name should return NULL\n");
+        err = 1;
+    }
+
+    xmlFreeDoc(doc);
+    return err;
+}
+
+static int
+testAddSibling(void) {
+    xmlDocPtr doc;
+    xmlNodePtr root, child1, child2, sib;
+    int err = 0;
+
+    doc = xmlNewDoc(BAD_CAST "1.0");
+    root = xmlNewDocNode(doc, NULL, BAD_CAST "root", NULL);
+    xmlDocSetRootElement(doc, root);
+    child1 = xmlNewChild(root, NULL, BAD_CAST "a", NULL);
+    child2 = xmlNewChild(root, NULL, BAD_CAST "b", NULL);
+
+    /* xmlAddSibling appends after last sibling */
+    sib = xmlNewDocNode(doc, NULL, BAD_CAST "c", NULL);
+    sib = xmlAddSibling(child1, sib);
+    if (sib == NULL) {
+        fprintf(stderr, "testAddSibling: xmlAddSibling returned NULL\n");
+        err = 1;
+    }
+    if (root->last != sib) {
+        fprintf(stderr, "testAddSibling: new node not last\n");
+        err = 1;
+    }
+    if (child2->next != sib || sib->prev != child2) {
+        fprintf(stderr, "testAddSibling: sibling links wrong\n");
+        err = 1;
+    }
+    if (sib->parent != root) {
+        fprintf(stderr, "testAddSibling: parent not set\n");
+        err = 1;
+    }
+
+    /* NULL args return NULL */
+    if (xmlAddSibling(NULL, sib) != NULL) {
+        fprintf(stderr, "testAddSibling: NULL node should return NULL\n");
+        err = 1;
+    }
+    if (xmlAddSibling(child1, NULL) != NULL) {
+        fprintf(stderr, "testAddSibling: NULL cur should return NULL\n");
+        err = 1;
+    }
+
+    /* Adding self returns NULL */
+    if (xmlAddSibling(child1, child1) != NULL) {
+        fprintf(stderr, "testAddSibling: self should return NULL\n");
+        err = 1;
+    }
+
+    xmlFreeDoc(doc);
+    return err;
+}
+
+static int
+testAddNextSibling(void) {
+    xmlDocPtr doc;
+    xmlNodePtr root, child1, child2, inserted;
+    int err = 0;
+
+    doc = xmlNewDoc(BAD_CAST "1.0");
+    root = xmlNewDocNode(doc, NULL, BAD_CAST "root", NULL);
+    xmlDocSetRootElement(doc, root);
+    child1 = xmlNewChild(root, NULL, BAD_CAST "a", NULL);
+    child2 = xmlNewChild(root, NULL, BAD_CAST "c", NULL);
+
+    /* Insert between child1 and child2 */
+    inserted = xmlNewDocNode(doc, NULL, BAD_CAST "b", NULL);
+    inserted = xmlAddNextSibling(child1, inserted);
+    if (inserted == NULL) {
+        fprintf(stderr, "testAddNextSibling: returned NULL\n");
+        err = 1;
+    }
+    if (child1->next != inserted || inserted->next != child2) {
+        fprintf(stderr, "testAddNextSibling: next links wrong\n");
+        err = 1;
+    }
+    if (child2->prev != inserted || inserted->prev != child1) {
+        fprintf(stderr, "testAddNextSibling: prev links wrong\n");
+        err = 1;
+    }
+    if (inserted->parent != root) {
+        fprintf(stderr, "testAddNextSibling: parent not set\n");
+        err = 1;
+    }
+
+    /* Insert at end (after child2) */
+    {
+        xmlNodePtr tail = xmlNewDocNode(doc, NULL, BAD_CAST "d", NULL);
+        tail = xmlAddNextSibling(child2, tail);
+        if (tail == NULL || root->last != tail) {
+            fprintf(stderr, "testAddNextSibling: tail insert failed\n");
+            err = 1;
+        }
+        if (child2->next != tail || tail->prev != child2) {
+            fprintf(stderr, "testAddNextSibling: tail links wrong\n");
+            err = 1;
+        }
+    }
+
+    /* NULL args */
+    if (xmlAddNextSibling(NULL, inserted) != NULL) {
+        fprintf(stderr, "testAddNextSibling: NULL prev should return NULL\n");
+        err = 1;
+    }
+    if (xmlAddNextSibling(child1, NULL) != NULL) {
+        fprintf(stderr, "testAddNextSibling: NULL cur should return NULL\n");
+        err = 1;
+    }
+
+    /* Already next sibling returns cur */
+    if (xmlAddNextSibling(child1, child1->next) != child1->next) {
+        fprintf(stderr, "testAddNextSibling: already-next should return cur\n");
+        err = 1;
+    }
+
+    xmlFreeDoc(doc);
+    return err;
+}
+
+static int
+testAddPrevSibling(void) {
+    xmlDocPtr doc;
+    xmlNodePtr root, child1, child2, inserted;
+    int err = 0;
+
+    doc = xmlNewDoc(BAD_CAST "1.0");
+    root = xmlNewDocNode(doc, NULL, BAD_CAST "root", NULL);
+    xmlDocSetRootElement(doc, root);
+    child1 = xmlNewChild(root, NULL, BAD_CAST "a", NULL);
+    child2 = xmlNewChild(root, NULL, BAD_CAST "c", NULL);
+
+    /* Insert before child2 */
+    inserted = xmlNewDocNode(doc, NULL, BAD_CAST "b", NULL);
+    inserted = xmlAddPrevSibling(child2, inserted);
+    if (inserted == NULL) {
+        fprintf(stderr, "testAddPrevSibling: returned NULL\n");
+        err = 1;
+    }
+    if (child1->next != inserted || inserted->next != child2) {
+        fprintf(stderr, "testAddPrevSibling: next links wrong\n");
+        err = 1;
+    }
+    if (child2->prev != inserted || inserted->prev != child1) {
+        fprintf(stderr, "testAddPrevSibling: prev links wrong\n");
+        err = 1;
+    }
+
+    /* Insert at beginning (before child1) */
+    {
+        xmlNodePtr head = xmlNewDocNode(doc, NULL, BAD_CAST "z", NULL);
+        head = xmlAddPrevSibling(child1, head);
+        if (head == NULL || root->children != head) {
+            fprintf(stderr, "testAddPrevSibling: head insert failed\n");
+            err = 1;
+        }
+        if (head->next != child1 || child1->prev != head) {
+            fprintf(stderr, "testAddPrevSibling: head links wrong\n");
+            err = 1;
+        }
+    }
+
+    /* NULL args */
+    if (xmlAddPrevSibling(NULL, inserted) != NULL) {
+        fprintf(stderr, "testAddPrevSibling: NULL next should return NULL\n");
+        err = 1;
+    }
+    if (xmlAddPrevSibling(child2, NULL) != NULL) {
+        fprintf(stderr, "testAddPrevSibling: NULL cur should return NULL\n");
+        err = 1;
+    }
+
+    /* Already prev sibling returns cur */
+    if (xmlAddPrevSibling(child2, child2->prev) != child2->prev) {
+        fprintf(stderr, "testAddPrevSibling: already-prev should return cur\n");
+        err = 1;
+    }
+
+    xmlFreeDoc(doc);
+    return err;
+}
+
+static int
+testReplaceNode(void) {
+    xmlDocPtr doc;
+    xmlNodePtr root, child1, child2, child3, replacement, old;
+    int err = 0;
+
+    doc = xmlNewDoc(BAD_CAST "1.0");
+    root = xmlNewDocNode(doc, NULL, BAD_CAST "root", NULL);
+    xmlDocSetRootElement(doc, root);
+    child1 = xmlNewChild(root, NULL, BAD_CAST "a", NULL);
+    child2 = xmlNewChild(root, NULL, BAD_CAST "b", NULL);
+    child3 = xmlNewChild(root, NULL, BAD_CAST "c", NULL);
+
+    /* Replace middle child */
+    replacement = xmlNewDocNode(doc, NULL, BAD_CAST "B", NULL);
+    old = xmlReplaceNode(child2, replacement);
+    if (old != child2) {
+        fprintf(stderr, "testReplaceNode: didn't return old node\n");
+        err = 1;
+    }
+    if (child1->next != replacement || replacement->next != child3) {
+        fprintf(stderr, "testReplaceNode: next links wrong\n");
+        err = 1;
+    }
+    if (child3->prev != replacement || replacement->prev != child1) {
+        fprintf(stderr, "testReplaceNode: prev links wrong\n");
+        err = 1;
+    }
+    if (replacement->parent != root) {
+        fprintf(stderr, "testReplaceNode: parent not set\n");
+        err = 1;
+    }
+    /* Old node is unlinked */
+    if (old->parent != NULL || old->next != NULL || old->prev != NULL) {
+        fprintf(stderr, "testReplaceNode: old node not unlinked\n");
+        err = 1;
+    }
+    xmlFreeNode(old);
+
+    /* Replace first child */
+    {
+        xmlNodePtr newFirst = xmlNewDocNode(doc, NULL, BAD_CAST "A", NULL);
+        old = xmlReplaceNode(child1, newFirst);
+        if (root->children != newFirst) {
+            fprintf(stderr, "testReplaceNode: first child not updated\n");
+            err = 1;
+        }
+        if (newFirst->next != replacement) {
+            fprintf(stderr, "testReplaceNode: first->next wrong\n");
+            err = 1;
+        }
+        xmlFreeNode(old);
+        child1 = newFirst;
+    }
+
+    /* Replace last child */
+    {
+        xmlNodePtr newLast = xmlNewDocNode(doc, NULL, BAD_CAST "C", NULL);
+        old = xmlReplaceNode(child3, newLast);
+        if (root->last != newLast) {
+            fprintf(stderr, "testReplaceNode: last child not updated\n");
+            err = 1;
+        }
+        if (replacement->next != newLast) {
+            fprintf(stderr, "testReplaceNode: last prev link wrong\n");
+            err = 1;
+        }
+        xmlFreeNode(old);
+    }
+
+    /* Replace with NULL cur unlinks old */
+    {
+        xmlNodePtr target = replacement;
+        old = xmlReplaceNode(target, NULL);
+        if (old != target) {
+            fprintf(stderr, "testReplaceNode: NULL cur didn't return old\n");
+            err = 1;
+        }
+        if (old->parent != NULL) {
+            fprintf(stderr, "testReplaceNode: NULL cur didn't unlink\n");
+            err = 1;
+        }
+        xmlFreeNode(old);
+    }
+
+    /* NULL old returns NULL */
+    if (xmlReplaceNode(NULL, xmlNewDocNode(doc, NULL, BAD_CAST "x", NULL))
+        != NULL) {
+        fprintf(stderr, "testReplaceNode: NULL old should return NULL\n");
+        err = 1;
+    }
+
+    /* Self-replacement returns NULL */
+    if (xmlReplaceNode(child1, child1) != NULL) {
+        fprintf(stderr, "testReplaceNode: self should return NULL\n");
+        err = 1;
+    }
+
+    xmlFreeDoc(doc);
+    return err;
+}
+
 int
 main(void) {
     int err = 0;
@@ -2124,6 +2473,11 @@ main(void) {
     err |= testXmlStringCompare();
     err |= testXmlStringConcat();
     err |= testXmlStringUTF8();
+    err |= testNewChild();
+    err |= testAddSibling();
+    err |= testAddNextSibling();
+    err |= testAddPrevSibling();
+    err |= testReplaceNode();
 
     return err;
 }
