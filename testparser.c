@@ -2057,6 +2057,238 @@ testXmlStringUTF8(void) {
     return err;
 }
 
+static int
+testNsPropertyOps(void) {
+    xmlDocPtr doc;
+    xmlNodePtr root;
+    xmlNsPtr ns1, ns2;
+    xmlAttrPtr attr;
+    xmlChar *val;
+    int err = 0;
+
+    doc = xmlNewDoc(BAD_CAST "1.0");
+    if (doc == NULL) {
+        fprintf(stderr, "testNsPropertyOps: xmlNewDoc failed\n");
+        return 1;
+    }
+    root = xmlNewDocNode(doc, NULL, BAD_CAST "root", NULL);
+    if (root == NULL) {
+        fprintf(stderr, "testNsPropertyOps: xmlNewDocNode failed\n");
+        xmlFreeDoc(doc);
+        return 1;
+    }
+    xmlDocSetRootElement(doc, root);
+
+    /* Create two namespaces on the root element */
+    ns1 = xmlNewNs(root, BAD_CAST "http://example.com/ns1", BAD_CAST "ns1");
+    ns2 = xmlNewNs(root, BAD_CAST "http://example.com/ns2", BAD_CAST "ns2");
+    if (ns1 == NULL || ns2 == NULL) {
+        fprintf(stderr, "testNsPropertyOps: xmlNewNs failed\n");
+        xmlFreeDoc(doc);
+        return 1;
+    }
+
+    /* xmlSetNsProp: set a namespaced attribute */
+    attr = xmlSetNsProp(root, ns1, BAD_CAST "attr1", BAD_CAST "value1");
+    if (attr == NULL) {
+        fprintf(stderr, "testNsPropertyOps: xmlSetNsProp failed\n");
+        err = 1;
+    }
+
+    /* xmlSetNsProp: set attribute in a different namespace */
+    attr = xmlSetNsProp(root, ns2, BAD_CAST "attr1", BAD_CAST "value2");
+    if (attr == NULL) {
+        fprintf(stderr, "testNsPropertyOps: xmlSetNsProp ns2 failed\n");
+        err = 1;
+    }
+
+    /* xmlGetNsProp: retrieve attribute by namespace URI */
+    val = xmlGetNsProp(root, BAD_CAST "attr1",
+                       BAD_CAST "http://example.com/ns1");
+    if (val == NULL || xmlStrcmp(val, BAD_CAST "value1") != 0) {
+        fprintf(stderr, "testNsPropertyOps: xmlGetNsProp ns1 returned '%s' "
+                "expected 'value1'\n", val ? (char *)val : "(null)");
+        err = 1;
+    }
+    xmlFree(val);
+
+    val = xmlGetNsProp(root, BAD_CAST "attr1",
+                       BAD_CAST "http://example.com/ns2");
+    if (val == NULL || xmlStrcmp(val, BAD_CAST "value2") != 0) {
+        fprintf(stderr, "testNsPropertyOps: xmlGetNsProp ns2 returned '%s' "
+                "expected 'value2'\n", val ? (char *)val : "(null)");
+        err = 1;
+    }
+    xmlFree(val);
+
+    /* xmlGetNsProp: non-existent namespace returns NULL */
+    val = xmlGetNsProp(root, BAD_CAST "attr1",
+                       BAD_CAST "http://example.com/nosuch");
+    if (val != NULL) {
+        fprintf(stderr, "testNsPropertyOps: xmlGetNsProp non-existent ns "
+                "returned non-NULL\n");
+        xmlFree(val);
+        err = 1;
+    }
+
+    /* xmlHasNsProp: check attribute existence */
+    attr = xmlHasNsProp(root, BAD_CAST "attr1",
+                        BAD_CAST "http://example.com/ns1");
+    if (attr == NULL) {
+        fprintf(stderr, "testNsPropertyOps: xmlHasNsProp ns1 returned NULL\n");
+        err = 1;
+    }
+
+    attr = xmlHasNsProp(root, BAD_CAST "attr1",
+                        BAD_CAST "http://example.com/ns2");
+    if (attr == NULL) {
+        fprintf(stderr, "testNsPropertyOps: xmlHasNsProp ns2 returned NULL\n");
+        err = 1;
+    }
+
+    /* xmlHasNsProp: non-existent attribute */
+    attr = xmlHasNsProp(root, BAD_CAST "noattr",
+                        BAD_CAST "http://example.com/ns1");
+    if (attr != NULL) {
+        fprintf(stderr, "testNsPropertyOps: xmlHasNsProp non-existent attr "
+                "returned non-NULL\n");
+        err = 1;
+    }
+
+    /* xmlSetNsProp: update existing namespaced attribute value */
+    attr = xmlSetNsProp(root, ns1, BAD_CAST "attr1", BAD_CAST "updated");
+    if (attr == NULL) {
+        fprintf(stderr, "testNsPropertyOps: xmlSetNsProp update failed\n");
+        err = 1;
+    }
+    val = xmlGetNsProp(root, BAD_CAST "attr1",
+                       BAD_CAST "http://example.com/ns1");
+    if (val == NULL || xmlStrcmp(val, BAD_CAST "updated") != 0) {
+        fprintf(stderr, "testNsPropertyOps: xmlSetNsProp update returned '%s' "
+                "expected 'updated'\n", val ? (char *)val : "(null)");
+        err = 1;
+    }
+    xmlFree(val);
+
+    /* xmlNodeGetAttrValue: newer API for namespace-aware lookup */
+    {
+        xmlChar *out = NULL;
+        int ret;
+
+        ret = xmlNodeGetAttrValue(root, BAD_CAST "attr1",
+                                  BAD_CAST "http://example.com/ns2", &out);
+        if (ret != 0 || out == NULL ||
+            xmlStrcmp(out, BAD_CAST "value2") != 0) {
+            fprintf(stderr, "testNsPropertyOps: xmlNodeGetAttrValue ns2 "
+                    "ret=%d val='%s'\n", ret, out ? (char *)out : "(null)");
+            err = 1;
+        }
+        xmlFree(out);
+
+        /* Non-existent attribute returns 1 */
+        out = NULL;
+        ret = xmlNodeGetAttrValue(root, BAD_CAST "noattr",
+                                  BAD_CAST "http://example.com/ns1", &out);
+        if (ret != 1 || out != NULL) {
+            fprintf(stderr, "testNsPropertyOps: xmlNodeGetAttrValue "
+                    "non-existent ret=%d\n", ret);
+            xmlFree(out);
+            err = 1;
+        }
+
+        /* NULL out pointer returns 1 */
+        ret = xmlNodeGetAttrValue(root, BAD_CAST "attr1",
+                                  BAD_CAST "http://example.com/ns1", NULL);
+        if (ret != 1) {
+            fprintf(stderr, "testNsPropertyOps: xmlNodeGetAttrValue "
+                    "NULL out ret=%d expected 1\n", ret);
+            err = 1;
+        }
+    }
+
+    /* xmlUnsetNsProp: remove namespaced attribute */
+    if (xmlUnsetNsProp(root, ns1, BAD_CAST "attr1") != 0) {
+        fprintf(stderr, "testNsPropertyOps: xmlUnsetNsProp ns1 failed\n");
+        err = 1;
+    }
+    val = xmlGetNsProp(root, BAD_CAST "attr1",
+                       BAD_CAST "http://example.com/ns1");
+    if (val != NULL) {
+        fprintf(stderr, "testNsPropertyOps: xmlGetNsProp after unset "
+                "returned non-NULL\n");
+        xmlFree(val);
+        err = 1;
+    }
+
+    /* ns2 attribute should still exist */
+    val = xmlGetNsProp(root, BAD_CAST "attr1",
+                       BAD_CAST "http://example.com/ns2");
+    if (val == NULL || xmlStrcmp(val, BAD_CAST "value2") != 0) {
+        fprintf(stderr, "testNsPropertyOps: ns2 attr lost after ns1 unset\n");
+        err = 1;
+    }
+    xmlFree(val);
+
+    /* xmlUnsetNsProp: non-existent attribute returns -1 */
+    if (xmlUnsetNsProp(root, ns1, BAD_CAST "noattr") != -1) {
+        fprintf(stderr, "testNsPropertyOps: xmlUnsetNsProp non-existent "
+                "did not return -1\n");
+        err = 1;
+    }
+
+    /* xmlSetNsProp with NULL value */
+    attr = xmlSetNsProp(root, ns1, BAD_CAST "empty", NULL);
+    if (attr == NULL) {
+        fprintf(stderr, "testNsPropertyOps: xmlSetNsProp NULL value failed\n");
+        err = 1;
+    }
+    val = xmlGetNsProp(root, BAD_CAST "empty",
+                       BAD_CAST "http://example.com/ns1");
+    if (val == NULL || xmlStrcmp(val, BAD_CAST "") != 0) {
+        fprintf(stderr, "testNsPropertyOps: xmlGetNsProp NULL value "
+                "returned '%s'\n", val ? (char *)val : "(null)");
+        err = 1;
+    }
+    xmlFree(val);
+
+    /* xmlSetNsProp with NULL name returns NULL */
+    attr = xmlSetNsProp(root, ns1, NULL, BAD_CAST "val");
+    if (attr != NULL) {
+        fprintf(stderr, "testNsPropertyOps: xmlSetNsProp NULL name "
+                "returned non-NULL\n");
+        err = 1;
+    }
+
+    /* xmlNewNsProp: create a free-standing ns attribute */
+    attr = xmlNewNsProp(NULL, ns1, BAD_CAST "standalone", BAD_CAST "sv");
+    if (attr == NULL) {
+        fprintf(stderr, "testNsPropertyOps: xmlNewNsProp failed\n");
+        err = 1;
+    } else {
+        if (attr->ns != ns1) {
+            fprintf(stderr, "testNsPropertyOps: xmlNewNsProp wrong ns\n");
+            err = 1;
+        }
+        if (xmlStrcmp(attr->name, BAD_CAST "standalone") != 0) {
+            fprintf(stderr, "testNsPropertyOps: xmlNewNsProp wrong name\n");
+            err = 1;
+        }
+        xmlFreeProp(attr);
+    }
+
+    /* xmlNewNsProp with NULL name returns NULL */
+    attr = xmlNewNsProp(NULL, ns1, NULL, BAD_CAST "val");
+    if (attr != NULL) {
+        fprintf(stderr, "testNsPropertyOps: xmlNewNsProp NULL name "
+                "returned non-NULL\n");
+        xmlFreeProp(attr);
+        err = 1;
+    }
+
+    xmlFreeDoc(doc);
+    return err;
+}
+
 int
 main(void) {
     int err = 0;
@@ -2124,6 +2356,7 @@ main(void) {
     err |= testXmlStringCompare();
     err |= testXmlStringConcat();
     err |= testXmlStringUTF8();
+    err |= testNsPropertyOps();
 
     return err;
 }
