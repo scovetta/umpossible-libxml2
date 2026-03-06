@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: MIT */
+/* Copyright (C) 1998-2024 Daniel Veillard and the libxml2 contributors. */
 /*
  * libxml.c: this modules implements the main part of the glue of the
  *           libxml2 library and the Python interpreter. It provides the

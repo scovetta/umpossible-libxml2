@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: MIT */
+/* Copyright (C) 1998-2024 Daniel Veillard and the libxml2 contributors. */
 /*
  * schematron.c : implementation of the Schematron schema validity checking
  *

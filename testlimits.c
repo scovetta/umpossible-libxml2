@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: MIT */
+/* Copyright (C) 1998-2024 Daniel Veillard and the libxml2 contributors. */
 /*
  * testlimits.c: C program to run libxml2 regression tests checking various
  *       limits in document size. Will consume a lot of RAM and CPU cycles

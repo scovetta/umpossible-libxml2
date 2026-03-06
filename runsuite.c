@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: MIT */
+/* Copyright (C) 1998-2024 Daniel Veillard and the libxml2 contributors. */
 /*
  * runsuite.c: C program to run libxml2 against published testsuites
  *

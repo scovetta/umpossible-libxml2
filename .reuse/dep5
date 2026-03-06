@@ -1,0 +1,12 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: libxml2
+Upstream-Contact: Daniel Veillard <daniel@veillard.com>
+Source: https://gitlab.gnome.org/GNOME/libxml2
+
+Files: *
+Copyright: 1998-2024 Daniel Veillard and the libxml2 contributors.
+License: MIT
+
+Files: test/* result/* doc/*
+Copyright: 1998-2024 Daniel Veillard and the libxml2 contributors.
+License: MIT
