@@ -15,6 +15,12 @@
 #include <libxml/xmlwriter.h>
 #include <libxml/HTMLparser.h>
 #include <libxml/HTMLtree.h>
+#include <libxml/encoding.h>
+#include <libxml/list.h>
+#ifdef LIBXML_C14N_ENABLED
+#include <libxml/c14n.h>
+#include <libxml/xmlIO.h>
+#endif
 
 #include <string.h>
 
@@ -2057,6 +2063,557 @@ testXmlStringUTF8(void) {
     return err;
 }
 
+static int
+testEncodingAliases(void) {
+    int err = 0;
+    const char *alias;
+
+    /* xmlAddEncodingAlias: NULL args should return -1 */
+    if (xmlAddEncodingAlias(NULL, "TEST") != -1) {
+        fprintf(stderr, "xmlAddEncodingAlias(NULL,alias) should return -1\n");
+        err = 1;
+    }
+    if (xmlAddEncodingAlias("UTF-8", NULL) != -1) {
+        fprintf(stderr, "xmlAddEncodingAlias(name,NULL) should return -1\n");
+        err = 1;
+    }
+
+    /* xmlGetEncodingAlias: before any aliases, should return NULL */
+    if (xmlGetEncodingAlias(NULL) != NULL) {
+        fprintf(stderr, "xmlGetEncodingAlias(NULL) should return NULL\n");
+        err = 1;
+    }
+
+    /* Add an alias and look it up */
+    if (xmlAddEncodingAlias("UTF-8", "MY-UTF8") != 0) {
+        fprintf(stderr, "xmlAddEncodingAlias failed\n");
+        err = 1;
+    }
+    alias = xmlGetEncodingAlias("MY-UTF8");
+    if (alias == NULL || strcmp(alias, "UTF-8") != 0) {
+        fprintf(stderr, "xmlGetEncodingAlias returned %s, expected UTF-8\n",
+                alias ? alias : "(null)");
+        err = 1;
+    }
+
+    /* Lookup is case-insensitive */
+    alias = xmlGetEncodingAlias("my-utf8");
+    if (alias == NULL || strcmp(alias, "UTF-8") != 0) {
+        fprintf(stderr,
+                "xmlGetEncodingAlias case-insensitive lookup failed\n");
+        err = 1;
+    }
+
+    /* Add a second alias */
+    if (xmlAddEncodingAlias("ISO-8859-1", "MY-LATIN1") != 0) {
+        fprintf(stderr, "xmlAddEncodingAlias (2nd) failed\n");
+        err = 1;
+    }
+    alias = xmlGetEncodingAlias("MY-LATIN1");
+    if (alias == NULL || strcmp(alias, "ISO-8859-1") != 0) {
+        fprintf(stderr, "xmlGetEncodingAlias (2nd) returned %s\n",
+                alias ? alias : "(null)");
+        err = 1;
+    }
+
+    /* xmlDelEncodingAlias: NULL should return -1 */
+    if (xmlDelEncodingAlias(NULL) != -1) {
+        fprintf(stderr, "xmlDelEncodingAlias(NULL) should return -1\n");
+        err = 1;
+    }
+
+    /* Delete first alias */
+    if (xmlDelEncodingAlias("MY-UTF8") != 0) {
+        fprintf(stderr, "xmlDelEncodingAlias(MY-UTF8) failed\n");
+        err = 1;
+    }
+    /* After deletion, lookup should fail */
+    if (xmlGetEncodingAlias("MY-UTF8") != NULL) {
+        fprintf(stderr, "xmlGetEncodingAlias after delete should be NULL\n");
+        err = 1;
+    }
+    /* Second alias still present */
+    alias = xmlGetEncodingAlias("MY-LATIN1");
+    if (alias == NULL) {
+        fprintf(stderr, "MY-LATIN1 alias unexpectedly missing\n");
+        err = 1;
+    }
+
+    /* Delete non-existent alias should return -1 */
+    if (xmlDelEncodingAlias("NO-SUCH-ALIAS") != -1) {
+        fprintf(stderr, "xmlDelEncodingAlias(unknown) should return -1\n");
+        err = 1;
+    }
+
+    /* xmlCleanupEncodingAliases: clears all aliases */
+    xmlCleanupEncodingAliases();
+    if (xmlGetEncodingAlias("MY-LATIN1") != NULL) {
+        fprintf(stderr, "alias still present after xmlCleanupEncodingAliases\n");
+        err = 1;
+    }
+    /* Safe to call twice */
+    xmlCleanupEncodingAliases();
+
+    return err;
+}
+
+static int
+testParseCharEncoding(void) {
+    int err = 0;
+
+    /* Known encodings */
+    if (xmlParseCharEncoding("UTF-8") != XML_CHAR_ENCODING_UTF8) {
+        fprintf(stderr, "xmlParseCharEncoding UTF-8 failed\n");
+        err = 1;
+    }
+    if (xmlParseCharEncoding("utf-8") != XML_CHAR_ENCODING_UTF8) {
+        fprintf(stderr, "xmlParseCharEncoding utf-8 (lowercase) failed\n");
+        err = 1;
+    }
+    if (xmlParseCharEncoding("ISO-8859-1") != XML_CHAR_ENCODING_8859_1) {
+        fprintf(stderr, "xmlParseCharEncoding ISO-8859-1 failed\n");
+        err = 1;
+    }
+    if (xmlParseCharEncoding("US-ASCII") != XML_CHAR_ENCODING_ASCII) {
+        fprintf(stderr, "xmlParseCharEncoding US-ASCII failed\n");
+        err = 1;
+    }
+    /* Unknown encoding should return XML_CHAR_ENCODING_ERROR */
+    if (xmlParseCharEncoding("UNKNOWN-ENCODING-XYZ") !=
+            XML_CHAR_ENCODING_ERROR) {
+        fprintf(stderr,
+                "xmlParseCharEncoding unknown should return ERROR\n");
+        err = 1;
+    }
+    /* NULL should return XML_CHAR_ENCODING_NONE */
+    if (xmlParseCharEncoding(NULL) != XML_CHAR_ENCODING_NONE) {
+        fprintf(stderr, "xmlParseCharEncoding(NULL) should return NONE\n");
+        err = 1;
+    }
+
+    return err;
+}
+
+static int
+testGetCharEncodingName(void) {
+    int err = 0;
+    const char *name;
+
+    /* UTF-8 */
+    name = xmlGetCharEncodingName(XML_CHAR_ENCODING_UTF8);
+    if (name == NULL || strcmp(name, "UTF-8") != 0) {
+        fprintf(stderr, "xmlGetCharEncodingName UTF-8 returned %s\n",
+                name ? name : "(null)");
+        err = 1;
+    }
+    /* ISO-8859-1 */
+    name = xmlGetCharEncodingName(XML_CHAR_ENCODING_8859_1);
+    if (name == NULL || strcmp(name, "ISO-8859-1") != 0) {
+        fprintf(stderr, "xmlGetCharEncodingName ISO-8859-1 returned %s\n",
+                name ? name : "(null)");
+        err = 1;
+    }
+    /* Invalid encoding value should return NULL */
+    name = xmlGetCharEncodingName((xmlCharEncoding) -99);
+    if (name != NULL) {
+        fprintf(stderr,
+                "xmlGetCharEncodingName(-99) should return NULL, got %s\n",
+                name);
+        err = 1;
+    }
+
+    return err;
+}
+
+static int
+testDetectCharEncoding(void) {
+    int err = 0;
+    /* UTF-8 BOM: EF BB BF */
+    const unsigned char utf8_bom[] = { 0xEF, 0xBB, 0xBF, 0x3C };
+    /* UTF-16 BE BOM: FE FF */
+    const unsigned char utf16be_bom[] = { 0xFE, 0xFF, 0x00, 0x3C };
+    /* UTF-16 LE BOM: FF FE */
+    const unsigned char utf16le_bom[] = { 0xFF, 0xFE, 0x3C, 0x00 };
+    /* <?xm in UTF-8 -> XML_CHAR_ENCODING_UTF8 */
+    const unsigned char xml_decl[] = { 0x3C, 0x3F, 0x78, 0x6D };
+    /* NULL -> XML_CHAR_ENCODING_NONE */
+
+    if (xmlDetectCharEncoding(utf8_bom, 4) != XML_CHAR_ENCODING_UTF8) {
+        fprintf(stderr, "xmlDetectCharEncoding UTF-8 BOM failed\n");
+        err = 1;
+    }
+    if (xmlDetectCharEncoding(utf16be_bom, 4) != XML_CHAR_ENCODING_UTF16BE) {
+        fprintf(stderr, "xmlDetectCharEncoding UTF-16 BE BOM failed\n");
+        err = 1;
+    }
+    if (xmlDetectCharEncoding(utf16le_bom, 4) != XML_CHAR_ENCODING_UTF16LE) {
+        fprintf(stderr, "xmlDetectCharEncoding UTF-16 LE BOM failed\n");
+        err = 1;
+    }
+    if (xmlDetectCharEncoding(xml_decl, 4) != XML_CHAR_ENCODING_UTF8) {
+        fprintf(stderr, "xmlDetectCharEncoding XML declaration failed\n");
+        err = 1;
+    }
+    if (xmlDetectCharEncoding(NULL, 0) != XML_CHAR_ENCODING_NONE) {
+        fprintf(stderr, "xmlDetectCharEncoding(NULL) should return NONE\n");
+        err = 1;
+    }
+
+    return err;
+}
+
+#ifdef LIBXML_C14N_ENABLED
+static int
+testC14N(void) {
+    int err = 0;
+    xmlDocPtr doc;
+    xmlChar *result = NULL;
+    int ret;
+    const char *xml = "<root><child>text</child></root>";
+
+    doc = xmlReadDoc(BAD_CAST xml, NULL, NULL, 0);
+    if (doc == NULL) {
+        fprintf(stderr, "testC14N: xmlReadDoc failed\n");
+        return 1;
+    }
+
+    /* xmlC14NDocDumpMemory: canonicalize entire document */
+    ret = xmlC14NDocDumpMemory(doc, NULL, XML_C14N_1_0, NULL, 0, &result);
+    if (ret < 0 || result == NULL) {
+        fprintf(stderr, "xmlC14NDocDumpMemory failed: ret=%d\n", ret);
+        err = 1;
+    } else {
+        if (strstr((const char *) result, "<root>") == NULL ||
+            strstr((const char *) result, "<child>") == NULL) {
+            fprintf(stderr,
+                    "xmlC14NDocDumpMemory result missing expected content\n");
+            err = 1;
+        }
+        xmlFree(result);
+        result = NULL;
+    }
+
+    /* xmlC14NDocDumpMemory with comments */
+    ret = xmlC14NDocDumpMemory(doc, NULL, XML_C14N_1_0, NULL, 1, &result);
+    if (ret < 0 || result == NULL) {
+        fprintf(stderr,
+                "xmlC14NDocDumpMemory with_comments failed: ret=%d\n", ret);
+        err = 1;
+    } else {
+        xmlFree(result);
+        result = NULL;
+    }
+
+    /* xmlC14NDocDumpMemory with NULL doc_txt_ptr should return -1 */
+    ret = xmlC14NDocDumpMemory(doc, NULL, XML_C14N_1_0, NULL, 0, NULL);
+    if (ret != -1) {
+        fprintf(stderr,
+                "xmlC14NDocDumpMemory(NULL ptr) should return -1, got %d\n",
+                ret);
+        err = 1;
+    }
+
+    /* xmlC14NDocSaveTo: write to output buffer */
+    {
+        xmlOutputBufferPtr buf = xmlAllocOutputBuffer(NULL);
+        if (buf == NULL) {
+            fprintf(stderr, "testC14N: xmlAllocOutputBuffer failed\n");
+            err = 1;
+        } else {
+            ret = xmlC14NDocSaveTo(doc, NULL, XML_C14N_1_0, NULL, 0, buf);
+            if (ret < 0) {
+                fprintf(stderr, "xmlC14NDocSaveTo failed: ret=%d\n", ret);
+                err = 1;
+            } else {
+                const xmlChar *content = xmlOutputBufferGetContent(buf);
+                if (content == NULL ||
+                    strstr((const char *) content, "<root>") == NULL) {
+                    fprintf(stderr,
+                            "xmlC14NDocSaveTo content missing <root>\n");
+                    err = 1;
+                }
+            }
+            xmlOutputBufferClose(buf);
+        }
+    }
+
+    /* xmlC14NExecute: use NULL callback (include all nodes) */
+    {
+        xmlOutputBufferPtr buf = xmlAllocOutputBuffer(NULL);
+        if (buf == NULL) {
+            fprintf(stderr, "testC14N: xmlAllocOutputBuffer (2) failed\n");
+            err = 1;
+        } else {
+            ret = xmlC14NExecute(doc, NULL, NULL, XML_C14N_1_0, NULL, 0, buf);
+            if (ret < 0) {
+                fprintf(stderr, "xmlC14NExecute failed: ret=%d\n", ret);
+                err = 1;
+            } else {
+                const xmlChar *content = xmlOutputBufferGetContent(buf);
+                if (content == NULL ||
+                    strstr((const char *) content, "<root>") == NULL) {
+                    fprintf(stderr,
+                            "xmlC14NExecute content missing <root>\n");
+                    err = 1;
+                }
+            }
+            xmlOutputBufferClose(buf);
+        }
+    }
+
+    /* xmlC14NDocSave: write to a temp file */
+    {
+        const char *tmpfile = "/tmp/testc14n_out.xml";
+        ret = xmlC14NDocSave(doc, NULL, XML_C14N_1_0, NULL, 0, tmpfile, 0);
+        if (ret < 0) {
+            fprintf(stderr, "xmlC14NDocSave failed: ret=%d\n", ret);
+            err = 1;
+        }
+        /* NULL filename should return -1 */
+        ret = xmlC14NDocSave(doc, NULL, XML_C14N_1_0, NULL, 0, NULL, 0);
+        if (ret != -1) {
+            fprintf(stderr,
+                    "xmlC14NDocSave(NULL filename) should return -1\n");
+            err = 1;
+        }
+    }
+
+    xmlFreeDoc(doc);
+    return err;
+}
+#endif /* LIBXML_C14N_ENABLED */
+
+static int listWalkCount;
+
+static int
+listWalkerCount(const void *data ATTRIBUTE_UNUSED,
+                void *user ATTRIBUTE_UNUSED) {
+    listWalkCount++;
+    return 1;
+}
+
+static int
+listIntCompare(const void *a, const void *b) {
+    return *(const int *) a - *(const int *) b;
+}
+
+static int
+testXmlList(void) {
+    int err = 0;
+    xmlListPtr list;
+    int v1 = 1, v2 = 2, v3 = 3, v4 = 4;
+    void *found;
+
+    /* xmlListCreate / xmlListDelete with NULL */
+    xmlListDelete(NULL); /* should not crash */
+
+    /* Create a list with integer comparator */
+    list = xmlListCreate(NULL, listIntCompare);
+    if (list == NULL) {
+        fprintf(stderr, "xmlListCreate failed\n");
+        return 1;
+    }
+
+    /* New list should be empty */
+    if (!xmlListEmpty(list)) {
+        fprintf(stderr, "new list should be empty\n");
+        err = 1;
+    }
+    if (xmlListSize(list) != 0) {
+        fprintf(stderr, "new list size should be 0, got %d\n",
+                xmlListSize(list));
+        err = 1;
+    }
+
+    /* xmlListInsert */
+    if (xmlListInsert(list, &v2) != 0) {
+        fprintf(stderr, "xmlListInsert v2 failed\n");
+        err = 1;
+    }
+    if (xmlListInsert(list, &v1) != 0) {
+        fprintf(stderr, "xmlListInsert v1 failed\n");
+        err = 1;
+    }
+    if (xmlListInsert(list, &v3) != 0) {
+        fprintf(stderr, "xmlListInsert v3 failed\n");
+        err = 1;
+    }
+    if (xmlListSize(list) != 3) {
+        fprintf(stderr, "list size after inserts: got %d, expected 3\n",
+                xmlListSize(list));
+        err = 1;
+    }
+
+    /* xmlListSearch */
+    found = xmlListSearch(list, &v2);
+    if (found != &v2) {
+        fprintf(stderr, "xmlListSearch v2 failed\n");
+        err = 1;
+    }
+    found = xmlListSearch(list, &v4);
+    if (found != NULL) {
+        fprintf(stderr, "xmlListSearch for absent item should be NULL\n");
+        err = 1;
+    }
+
+    /* xmlListReverseSearch */
+    found = xmlListReverseSearch(list, &v1);
+    if (found != &v1) {
+        fprintf(stderr, "xmlListReverseSearch v1 failed\n");
+        err = 1;
+    }
+
+    /* xmlListFront / xmlListEnd */
+    if (xmlListFront(list) == NULL) {
+        fprintf(stderr, "xmlListFront should not be NULL\n");
+        err = 1;
+    }
+    if (xmlListEnd(list) == NULL) {
+        fprintf(stderr, "xmlListEnd should not be NULL\n");
+        err = 1;
+    }
+
+    /* xmlListWalk */
+    listWalkCount = 0;
+    xmlListWalk(list, listWalkerCount, NULL);
+    if (listWalkCount != 3) {
+        fprintf(stderr, "xmlListWalk counted %d, expected 3\n",
+                listWalkCount);
+        err = 1;
+    }
+
+    /* xmlListReverseWalk */
+    listWalkCount = 0;
+    xmlListReverseWalk(list, listWalkerCount, NULL);
+    if (listWalkCount != 3) {
+        fprintf(stderr, "xmlListReverseWalk counted %d, expected 3\n",
+                listWalkCount);
+        err = 1;
+    }
+
+    /* xmlListRemoveFirst: list is sorted [v1, v2, v3] */
+    if (xmlListRemoveFirst(list, &v2) != 1) {
+        fprintf(stderr, "xmlListRemoveFirst v2 failed\n");
+        err = 1;
+    }
+    if (xmlListSize(list) != 2) {
+        fprintf(stderr, "list size after RemoveFirst: got %d, expected 2\n",
+                xmlListSize(list));
+        err = 1;
+    }
+
+    /* xmlListRemoveLast: list is now [v1, v3] */
+    if (xmlListRemoveLast(list, &v3) != 1) {
+        fprintf(stderr, "xmlListRemoveLast v3 failed\n");
+        err = 1;
+    }
+
+    /* xmlListAppend */
+    if (xmlListAppend(list, &v4) != 0) {
+        fprintf(stderr, "xmlListAppend v4 failed\n");
+        err = 1;
+    }
+    if (xmlListAppend(list, &v4) != 0) {
+        fprintf(stderr, "xmlListAppend v4 (2nd) failed\n");
+        err = 1;
+    }
+
+    /* xmlListRemoveAll: removes both v4 entries */
+    if (xmlListRemoveAll(list, &v4) < 1) {
+        fprintf(stderr, "xmlListRemoveAll v4 failed\n");
+        err = 1;
+    }
+
+    /* xmlListSort / xmlListReverse: exercise on remaining [v1] */
+    xmlListSort(list);
+    xmlListReverse(list);
+
+    /* xmlListPushFront / xmlListPushBack */
+    if (xmlListPushFront(list, &v2) != 1) {
+        fprintf(stderr, "xmlListPushFront failed\n");
+        err = 1;
+    }
+    if (xmlListPushBack(list, &v3) != 1) {
+        fprintf(stderr, "xmlListPushBack failed\n");
+        err = 1;
+    }
+
+    /* xmlListPopFront / xmlListPopBack */
+    xmlListPopFront(list);
+    xmlListPopBack(list);
+
+    /* xmlLinkGetData: get data via front link */
+    xmlListInsert(list, &v1);
+    {
+        xmlLinkPtr lk = xmlListFront(list);
+        if (lk != NULL) {
+            void *data = xmlLinkGetData(lk);
+            if (data != &v1) {
+                fprintf(stderr, "xmlLinkGetData returned unexpected data\n");
+                err = 1;
+            }
+        }
+    }
+
+    /* xmlListDup */
+    {
+        xmlListPtr dup = xmlListDup(list);
+        if (dup == NULL) {
+            fprintf(stderr, "xmlListDup failed\n");
+            err = 1;
+        } else {
+            if (xmlListSize(dup) != xmlListSize(list)) {
+                fprintf(stderr,
+                        "xmlListDup size mismatch: %d vs %d\n",
+                        xmlListSize(dup), xmlListSize(list));
+                err = 1;
+            }
+            xmlListDelete(dup);
+        }
+    }
+
+    /* xmlListCopy */
+    {
+        xmlListPtr dst = xmlListCreate(NULL, listIntCompare);
+        if (dst == NULL) {
+            fprintf(stderr, "xmlListCreate for copy failed\n");
+            err = 1;
+        } else {
+            if (xmlListCopy(dst, list) != 0) {
+                fprintf(stderr, "xmlListCopy failed\n");
+                err = 1;
+            }
+            if (xmlListSize(dst) != xmlListSize(list)) {
+                fprintf(stderr,
+                        "xmlListCopy size mismatch: %d vs %d\n",
+                        xmlListSize(dst), xmlListSize(list));
+                err = 1;
+            }
+            xmlListDelete(dst);
+        }
+    }
+
+    /* xmlListMerge */
+    {
+        xmlListPtr l2 = xmlListCreate(NULL, listIntCompare);
+        if (l2 != NULL) {
+            xmlListInsert(l2, &v4);
+            xmlListMerge(list, l2);
+            xmlListDelete(l2);
+        }
+    }
+
+    /* xmlListClear */
+    xmlListClear(list);
+    if (!xmlListEmpty(list)) {
+        fprintf(stderr, "list should be empty after xmlListClear\n");
+        err = 1;
+    }
+
+    xmlListDelete(list);
+    return err;
+}
+
 int
 main(void) {
     int err = 0;
@@ -2124,6 +2681,14 @@ main(void) {
     err |= testXmlStringCompare();
     err |= testXmlStringConcat();
     err |= testXmlStringUTF8();
+    err |= testEncodingAliases();
+    err |= testParseCharEncoding();
+    err |= testGetCharEncodingName();
+    err |= testDetectCharEncoding();
+#ifdef LIBXML_C14N_ENABLED
+    err |= testC14N();
+#endif
+    err |= testXmlList();
 
     return err;
 }
