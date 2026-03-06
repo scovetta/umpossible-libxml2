@@ -2057,6 +2057,372 @@ testXmlStringUTF8(void) {
     return err;
 }
 
+static int
+testTextConcat(void) {
+    xmlDocPtr doc;
+    xmlNodePtr text, cdata, comment, elem;
+    int err = 0;
+    int ret;
+
+    doc = xmlNewDoc(BAD_CAST "1.0");
+
+    /* Concat to text node */
+    text = xmlNewDocText(doc, BAD_CAST "hello");
+    ret = xmlTextConcat(text, BAD_CAST " world", 6);
+    if (ret != 0) {
+        fprintf(stderr, "xmlTextConcat text node returned %d\n", ret);
+        err = 1;
+    }
+    if (xmlStrcmp(text->content, BAD_CAST "hello world") != 0) {
+        fprintf(stderr, "xmlTextConcat text node content: '%s'\n",
+                (char *) text->content);
+        err = 1;
+    }
+    xmlFreeNode(text);
+
+    /* Concat to CDATA section */
+    cdata = xmlNewCDataBlock(doc, BAD_CAST "data", 4);
+    ret = xmlTextConcat(cdata, BAD_CAST "+more", 5);
+    if (ret != 0) {
+        fprintf(stderr, "xmlTextConcat CDATA returned %d\n", ret);
+        err = 1;
+    }
+    if (xmlStrcmp(cdata->content, BAD_CAST "data+more") != 0) {
+        fprintf(stderr, "xmlTextConcat CDATA content: '%s'\n",
+                (char *) cdata->content);
+        err = 1;
+    }
+    xmlFreeNode(cdata);
+
+    /* Concat to comment node */
+    comment = xmlNewComment(BAD_CAST "start");
+    ret = xmlTextConcat(comment, BAD_CAST "-end", 4);
+    if (ret != 0) {
+        fprintf(stderr, "xmlTextConcat comment returned %d\n", ret);
+        err = 1;
+    }
+    if (xmlStrcmp(comment->content, BAD_CAST "start-end") != 0) {
+        fprintf(stderr, "xmlTextConcat comment content: '%s'\n",
+                (char *) comment->content);
+        err = 1;
+    }
+    xmlFreeNode(comment);
+
+    /* Concat to element node should fail */
+    elem = xmlNewDocNode(doc, NULL, BAD_CAST "e", NULL);
+    ret = xmlTextConcat(elem, BAD_CAST "text", 4);
+    if (ret != -1) {
+        fprintf(stderr, "xmlTextConcat element should return -1, got %d\n",
+                ret);
+        err = 1;
+    }
+    xmlFreeNode(elem);
+
+    /* NULL node should fail */
+    ret = xmlTextConcat(NULL, BAD_CAST "text", 4);
+    if (ret != -1) {
+        fprintf(stderr, "xmlTextConcat(NULL) should return -1, got %d\n", ret);
+        err = 1;
+    }
+
+    xmlFreeDoc(doc);
+    return err;
+}
+
+static int
+testTextMerge(void) {
+    xmlDocPtr doc;
+    xmlNodePtr root, t1, t2, separator, result;
+    int err = 0;
+
+    doc = xmlNewDoc(BAD_CAST "1.0");
+    root = xmlNewDocNode(doc, NULL, BAD_CAST "root", NULL);
+    xmlDocSetRootElement(doc, root);
+
+    /*
+     * Merge two text nodes separated by an element so xmlAddChild
+     * doesn't auto-merge them.
+     */
+    t1 = xmlNewDocText(doc, BAD_CAST "hello ");
+    separator = xmlNewDocNode(doc, NULL, BAD_CAST "sep", NULL);
+    t2 = xmlNewDocText(doc, BAD_CAST "world");
+    xmlAddChild(root, t1);
+    xmlAddChild(root, separator);
+    xmlAddChild(root, t2);
+
+    /* Now unlink t2 so xmlTextMerge can merge it into t1 */
+    xmlUnlinkNode(t2);
+    result = xmlTextMerge(t1, t2);
+    if (result != t1) {
+        fprintf(stderr, "xmlTextMerge should return first node\n");
+        err = 1;
+    }
+    if (xmlStrcmp(t1->content, BAD_CAST "hello world") != 0) {
+        fprintf(stderr, "xmlTextMerge content: '%s'\n",
+                (char *) t1->content);
+        err = 1;
+    }
+
+    xmlFreeDoc(doc);
+
+    /* NULL first returns second */
+    t2 = xmlNewText(BAD_CAST "only");
+    result = xmlTextMerge(NULL, t2);
+    if (result != t2) {
+        fprintf(stderr, "xmlTextMerge(NULL, second) should return second\n");
+        err = 1;
+    }
+    xmlFreeNode(t2);
+
+    /* NULL second returns first */
+    t1 = xmlNewText(BAD_CAST "only");
+    result = xmlTextMerge(t1, NULL);
+    if (result != t1) {
+        fprintf(stderr, "xmlTextMerge(first, NULL) should return first\n");
+        err = 1;
+    }
+    xmlFreeNode(t1);
+
+    /* Non-text nodes should return NULL */
+    doc = xmlNewDoc(BAD_CAST "1.0");
+    t1 = xmlNewDocNode(doc, NULL, BAD_CAST "a", NULL);
+    t2 = xmlNewDocNode(doc, NULL, BAD_CAST "b", NULL);
+    result = xmlTextMerge(t1, t2);
+    if (result != NULL) {
+        fprintf(stderr, "xmlTextMerge(element, element) should return NULL\n");
+        err = 1;
+    }
+    xmlFreeNode(t1);
+    xmlFreeNode(t2);
+    xmlFreeDoc(doc);
+
+    /* Same node should return NULL */
+    t1 = xmlNewText(BAD_CAST "same");
+    result = xmlTextMerge(t1, t1);
+    if (result != NULL) {
+        fprintf(stderr, "xmlTextMerge(same, same) should return NULL\n");
+        err = 1;
+    }
+    xmlFreeNode(t1);
+
+    return err;
+}
+
+static int
+testNodeSetContentLen(void) {
+    xmlDocPtr doc;
+    xmlNodePtr text, elem;
+    int err = 0;
+
+    doc = xmlNewDoc(BAD_CAST "1.0");
+
+    /* Set content with explicit length on text node */
+    text = xmlNewDocText(doc, BAD_CAST "original");
+    xmlNodeSetContentLen(text, BAD_CAST "new content!!!", 11);
+    if (xmlStrcmp(text->content, BAD_CAST "new content") != 0) {
+        fprintf(stderr, "xmlNodeSetContentLen text: '%s'\n",
+                (char *) text->content);
+        err = 1;
+    }
+    xmlFreeNode(text);
+
+    /* Set content on element node (replaces children) */
+    elem = xmlNewDocNode(doc, NULL, BAD_CAST "e", BAD_CAST "old");
+    xmlNodeSetContentLen(elem, BAD_CAST "replaced!!!", 8);
+    {
+        xmlChar *content = xmlNodeGetContent(elem);
+        if (xmlStrcmp(content, BAD_CAST "replaced") != 0) {
+            fprintf(stderr, "xmlNodeSetContentLen element: '%s'\n",
+                    (char *) content);
+            err = 1;
+        }
+        xmlFree(content);
+    }
+    xmlFreeNode(elem);
+
+    /* Set empty content (len=0) */
+    text = xmlNewDocText(doc, BAD_CAST "notempty");
+    xmlNodeSetContentLen(text, BAD_CAST "x", 0);
+    if (text->content != NULL && xmlStrcmp(text->content, BAD_CAST "") != 0) {
+        fprintf(stderr, "xmlNodeSetContentLen(len=0) content: '%s'\n",
+                (char *) text->content);
+        err = 1;
+    }
+    xmlFreeNode(text);
+
+    /* NULL node */
+    xmlNodeSetContentLen(NULL, BAD_CAST "data", 4);
+
+    xmlFreeDoc(doc);
+    return err;
+}
+
+static int
+testNodeAddContentLen(void) {
+    xmlDocPtr doc;
+    xmlNodePtr text, elem;
+    int err = 0;
+    int ret;
+
+    doc = xmlNewDoc(BAD_CAST "1.0");
+
+    /* Append to text node with length */
+    text = xmlNewDocText(doc, BAD_CAST "start");
+    ret = xmlNodeAddContentLen(text, BAD_CAST " end!!!", 4);
+    if (ret != 0) {
+        fprintf(stderr, "xmlNodeAddContentLen text returned %d\n", ret);
+        err = 1;
+    }
+    if (xmlStrcmp(text->content, BAD_CAST "start end") != 0) {
+        fprintf(stderr, "xmlNodeAddContentLen text: '%s'\n",
+                (char *) text->content);
+        err = 1;
+    }
+    xmlFreeNode(text);
+
+    /* Append to element creates text child */
+    elem = xmlNewDocNode(doc, NULL, BAD_CAST "e", NULL);
+    ret = xmlNodeAddContentLen(elem, BAD_CAST "child text!!!", 10);
+    if (ret != 0) {
+        fprintf(stderr, "xmlNodeAddContentLen element returned %d\n", ret);
+        err = 1;
+    }
+    {
+        xmlChar *content = xmlNodeGetContent(elem);
+        if (xmlStrcmp(content, BAD_CAST "child text") != 0) {
+            fprintf(stderr, "xmlNodeAddContentLen element content: '%s'\n",
+                    (char *) content);
+            err = 1;
+        }
+        xmlFree(content);
+    }
+    xmlFreeNode(elem);
+
+    /* NULL content or len<=0 is a no-op */
+    text = xmlNewDocText(doc, BAD_CAST "keep");
+    ret = xmlNodeAddContentLen(text, NULL, 5);
+    if (ret != 0) {
+        fprintf(stderr, "xmlNodeAddContentLen(NULL content) returned %d\n",
+                ret);
+        err = 1;
+    }
+    ret = xmlNodeAddContentLen(text, BAD_CAST "x", 0);
+    if (ret != 0) {
+        fprintf(stderr, "xmlNodeAddContentLen(len=0) returned %d\n", ret);
+        err = 1;
+    }
+    if (xmlStrcmp(text->content, BAD_CAST "keep") != 0) {
+        fprintf(stderr, "xmlNodeAddContentLen no-op changed content: '%s'\n",
+                (char *) text->content);
+        err = 1;
+    }
+    xmlFreeNode(text);
+
+    /* NULL node returns error */
+    ret = xmlNodeAddContentLen(NULL, BAD_CAST "text", 4);
+    if (ret != 1) {
+        fprintf(stderr, "xmlNodeAddContentLen(NULL) should return 1, got %d\n",
+                ret);
+        err = 1;
+    }
+
+    xmlFreeDoc(doc);
+    return err;
+}
+
+static int
+testAddChildList(void) {
+    xmlDocPtr doc;
+    xmlNodePtr root, child1, child2, child3, result;
+    int err = 0;
+
+    doc = xmlNewDoc(BAD_CAST "1.0");
+    root = xmlNewDocNode(doc, NULL, BAD_CAST "root", NULL);
+    xmlDocSetRootElement(doc, root);
+
+    /* Add a list of 3 children to an empty parent */
+    child1 = xmlNewDocNode(doc, NULL, BAD_CAST "a", NULL);
+    child2 = xmlNewDocNode(doc, NULL, BAD_CAST "b", NULL);
+    child3 = xmlNewDocNode(doc, NULL, BAD_CAST "c", NULL);
+    child1->next = child2;
+    child2->prev = child1;
+    child2->next = child3;
+    child3->prev = child2;
+
+    result = xmlAddChildList(root, child1);
+    if (result == NULL) {
+        fprintf(stderr, "xmlAddChildList returned NULL\n");
+        err = 1;
+    }
+    if (root->children != child1) {
+        fprintf(stderr, "xmlAddChildList first child not set\n");
+        err = 1;
+    }
+    if (root->last != child3) {
+        fprintf(stderr, "xmlAddChildList last child not set\n");
+        err = 1;
+    }
+    if (child1->parent != root || child2->parent != root ||
+        child3->parent != root) {
+        fprintf(stderr, "xmlAddChildList parent not set on all children\n");
+        err = 1;
+    }
+
+    xmlFreeDoc(doc);
+
+    /* Text merging: if parent has text last child and list starts with text */
+    doc = xmlNewDoc(BAD_CAST "1.0");
+    root = xmlNewDocNode(doc, NULL, BAD_CAST "root", NULL);
+    xmlDocSetRootElement(doc, root);
+    xmlAddChild(root, xmlNewDocText(doc, BAD_CAST "hello "));
+
+    child1 = xmlNewDocText(doc, BAD_CAST "world");
+    child2 = xmlNewDocNode(doc, NULL, BAD_CAST "x", NULL);
+    child1->next = child2;
+    child2->prev = child1;
+
+    result = xmlAddChildList(root, child1);
+    if (result == NULL) {
+        fprintf(stderr, "xmlAddChildList text merge returned NULL\n");
+        err = 1;
+    }
+    /* First text should have been merged */
+    if (xmlStrcmp(root->children->content, BAD_CAST "hello world") != 0) {
+        fprintf(stderr, "xmlAddChildList text merge content: '%s'\n",
+                (char *) root->children->content);
+        err = 1;
+    }
+    /* The element should follow */
+    if (root->last != child2) {
+        fprintf(stderr, "xmlAddChildList text merge last child wrong\n");
+        err = 1;
+    }
+
+    xmlFreeDoc(doc);
+
+    /* NULL parent returns NULL */
+    child1 = xmlNewText(BAD_CAST "x");
+    result = xmlAddChildList(NULL, child1);
+    if (result != NULL) {
+        fprintf(stderr, "xmlAddChildList(NULL parent) should return NULL\n");
+        err = 1;
+    }
+    xmlFreeNode(child1);
+
+    /* NULL cur returns NULL */
+    doc = xmlNewDoc(BAD_CAST "1.0");
+    root = xmlNewDocNode(doc, NULL, BAD_CAST "r", NULL);
+    result = xmlAddChildList(root, NULL);
+    if (result != NULL) {
+        fprintf(stderr, "xmlAddChildList(NULL cur) should return NULL\n");
+        err = 1;
+    }
+    xmlFreeNode(root);
+    xmlFreeDoc(doc);
+
+    return err;
+}
+
 int
 main(void) {
     int err = 0;
@@ -2124,6 +2490,11 @@ main(void) {
     err |= testXmlStringCompare();
     err |= testXmlStringConcat();
     err |= testXmlStringUTF8();
+    err |= testTextConcat();
+    err |= testTextMerge();
+    err |= testNodeSetContentLen();
+    err |= testNodeAddContentLen();
+    err |= testAddChildList();
 
     return err;
 }
